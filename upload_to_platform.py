@@ -16,7 +16,6 @@ import toml
 import shutil
 import requests
 
-logging.basicConfig(filename='log/uploads.log',level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 
 #########################
@@ -297,10 +296,11 @@ def read_config_file(filename):
 #
 ##########################################################
 
-logging.info(" *** Starting Script ***")
-
 conf_file = "config.toml"
 config = read_config_file(conf_file)
+
+# Specify Settings For the Log
+logging.basicConfig(filename=config['path_to_logs']+'/uploads.log',level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 rs_platform = config["platform"]
 api_key = config["api-key"]
@@ -312,6 +312,8 @@ if len(sys.argv) > 1:
 else:
     path_to_files = config["path_to_files"]
     files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
+
+logging.info(" *** Configuration read.  Starting Script. ***")
 
 # If no files are found, log, notify the user and exit.
 if len(files) == 0:
@@ -332,8 +334,7 @@ assessment_start_date = str(today)
 assessment_notes = "Assessment generated via REST API script."
 
 print()
-print("This tool will now create a new assessment and upload files for scanning..."
-      "")
+print("This tool will now create a new assessment and upload files for scanning...")
 print("")
 
 client_id = get_client_id(rs_platform, api_key)
