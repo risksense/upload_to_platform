@@ -282,7 +282,6 @@ def read_config_file(filename):
         exit()
 
     data = toml.loads(toml_data)
-    logging.debug("Loaded configuration: %s", data)
 
     return data
 
