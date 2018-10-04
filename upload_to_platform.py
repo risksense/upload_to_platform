@@ -17,7 +17,6 @@ import shutil
 import requests
 
 
-
 #########################
 #
 #  Get Client ID
@@ -40,7 +39,7 @@ def get_client_id(platform, key):
 
     else:
         print(f"Error Getting Client ID: Status Code returned was {raw_client_id_response.status_code}")
-        return
+        exit()
 
     return found_id
 
@@ -121,7 +120,6 @@ def find_network_id(platform, key, client):
 #  Create a New Assessment
 #
 ##############################
-
 def create_new_assessment(platform, key, client, name, start_date, notes):
 
     logging.info("Creating new assessment.")
@@ -146,7 +144,6 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
         created_id = json_assessment_response['id']
     else:
         print(f"Error Creating New Assessment.  Status Code returned was {raw_assessment_response.status_code}")
-        return
 
     return created_id
 
@@ -297,29 +294,39 @@ def read_config_file(filename):
 ##########################################################
 
 conf_file = "config.toml"
-config = read_config_file(conf_file)
+config = read_config_file("conf/" + conf_file)
 
 # Specify Settings For the Log
-logging.basicConfig(filename=config['path_to_logs']+'/uploads.log',level=logging.DEBUG, format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(filename=config['path_to_logs']+'/uploads.log', level=logging.DEBUG, format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 rs_platform = config["platform"]
 api_key = config["api-key"]
 
+if api_key == "":
+    print("No API Key configured.  Please add your API Key to the configuration file.")
+    logging.info("No API Key configured.  Please add your API Key to the configuration file.")
+    exit()
+
+
+# If files are passed as arguments to the script, process those, and ignore any in the folder designated in the config.
+# This allows for the option to deploy the script as an executable with drag-and-drop functionality.
 if len(sys.argv) > 1:
     files = list(sys.argv)
     files.pop(0)
 
 else:
     path_to_files = config["path_to_files"]
+    # Get filenames, but ignor subfolders.
     files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
-
-logging.info(" *** Configuration read.  Starting Script. ***")
 
 # If no files are found, log, notify the user and exit.
 if len(files) == 0:
     print("No files found to process.  Exiting...")
     logging.info("No files found to process.")
     exit()
+
+logging.info(" *** Configuration read.  Files to process identified. Starting Script. ***")
+print("*** Configuration read.  Files to process identified. Starting Script. ***")
 
 process_state = ""
 
@@ -331,11 +338,11 @@ logging.info("Time: %s", current_time)
 
 assessment_name = "assmnt_" + str(today) + "_" + str(current_time)
 assessment_start_date = str(today)
-assessment_notes = "Assessment generated via REST API script."
+assessment_notes = "Assessment generated via upload_to_platform.py."
 
 print()
 print("This tool will now create a new assessment and upload files for scanning...")
-print("")
+print()
 
 client_id = get_client_id(rs_platform, api_key)
 
