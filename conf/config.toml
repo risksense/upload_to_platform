@@ -5,7 +5,7 @@ platform = 'https://platform.risksense.com'
 api-key = ''
 
 # You may uncomment this parameter and enter the desired network ID for your upload here if you already know it.
-network_id = ''
+#network_id = 
 
 # Specify the path to the folder containing the files you wish to upload
 path_to_files = 'files_to_process'
