@@ -9,7 +9,11 @@
       - `pip install toml`
     - requests
       - `pip install requests`
-    
+
+
+[Download version 0.1](https://github.com/risksense/upload_to_platform/releases/download/0.1/upload_to_platform.zip)
+
+
 ## Overview
 This Python script enables the upload of scan files to the Risksense platform via the REST API.
 
