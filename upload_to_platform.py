@@ -206,6 +206,9 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
 
     if raw_add_file_response.status_code != 201:
         print(f"Error uploading file {file_name}.  Status Code returned was {raw_add_file_response.status_code}")
+        print(raw_add_file_response.text)
+        logging.info("Error uploading file " + file_name + ". Status Code returned was " + raw_add_file_response.status_code)
+        logging.info(raw_add_file_response.text)
 
 
 ##############################
@@ -230,6 +233,8 @@ def begin_processing(platform, key, client, upload):
         return
     else:
         print("An error has occurred when trying to start processing of your upload(s).")
+        print(raw_begin_processing_response.text)
+        logging.info(raw_begin_processing_response.text)
         return
 
 
@@ -280,6 +285,7 @@ def read_config_file(filename):
         toml_data = open(filename).read()
     except:
         print("Error reading configuration file.  Please check for formatting errors.")
+        close = input("Please press ENTER to close.")
         exit()
 
     data = toml.loads(toml_data)
@@ -305,6 +311,7 @@ api_key = config["api-key"]
 if api_key == "":
     print("No API Key configured.  Please add your API Key to the configuration file.")
     logging.info("No API Key configured.  Please add your API Key to the configuration file.")
+    do_not_close = input("Please press ENTER to close.")
     exit()
 
 
@@ -316,13 +323,15 @@ if len(sys.argv) > 1:
 
 else:
     path_to_files = config["path_to_files"]
-    # Get filenames, but ignor subfolders.
+    # Get filenames, but ignore subfolders.
     files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
 
 # If no files are found, log, notify the user and exit.
 if len(files) == 0:
     print("No files found to process.  Exiting...")
     logging.info("No files found to process.")
+    print()
+    do_not_close = input("Please press ENTER to close.")
     exit()
 
 logging.info(" *** Configuration read.  Files to process identified. Starting Script. ***")
@@ -346,9 +355,8 @@ print()
 
 client_id = get_client_id(rs_platform, api_key)
 
-if config["network_id"] != "":
+if "network_id" in config:
     network_id = config["network_id"]
-
 else:
     network_id = find_network_id(rs_platform, api_key, client_id)
 
@@ -383,7 +391,7 @@ else:
                     "file_name": os.path.basename(files[x])
                     }
 
-        if files[x]['file_name'] != "config.toml":
+        if files[x]['file_name'] != "config.toml" and files[x]['file_name'] != "PLACE_FILES_TO_SCAN_HERE":
             add_file_to_upload(rs_platform, api_key, client_id, upload_id, files[x]['file_name'], files[x]['file_path'])
             shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'], files[x]['file_path'] + "/archive/" + files[x]['file_name'])
         x += 1
