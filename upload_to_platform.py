@@ -93,7 +93,7 @@ def find_network_id(platform, key, client):
         raw_network_search_response = requests.post(url, headers=header, data=json.dumps(body))
         json_network_search_response = json.loads(raw_network_search_response.text)
 
-        if raw_network_search_response.status_code == 200:
+        if raw_network_search_response.status_code == 200 and json_network_search_response['page']['totalElements'] != 0:
             z = 0
             network_list = []
             while z < len(json_network_search_response['_embedded']['networks']):
@@ -108,6 +108,13 @@ def find_network_id(platform, key, client):
 
             list_id = input("Please enter the number that corresponds with your network: ")
             network = network_list[int(list_id)][0]
+
+        elif raw_network_search_response.status_code == 200 and json_network_search_response['page']['totalElements'] == 0:
+            print()
+            print("No such network found.")
+            hold_open = input("Press ENTER to close.")
+            print()
+            exit(1)
 
         else:
             print(f"An error occurred during the search for your network.  Status code returned was {raw_network_search_response.status_code}")
@@ -299,11 +306,13 @@ def read_config_file(filename):
 #
 ##########################################################
 
-conf_file = "config.toml"
-config = read_config_file("conf/" + conf_file)
+conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
+config = read_config_file(conf_file)
+
+log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["log_folder"], 'uploads.log')
 
 # Specify Settings For the Log
-logging.basicConfig(filename=config['path_to_logs']+'/uploads.log', level=logging.DEBUG, format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+logging.basicConfig(filename=log_file, level=logging.DEBUG, format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
 rs_platform = config["platform"]
 api_key = config["api-key"]
@@ -312,7 +321,7 @@ if api_key == "":
     print("No API Key configured.  Please add your API Key to the configuration file.")
     logging.info("No API Key configured.  Please add your API Key to the configuration file.")
     do_not_close = input("Please press ENTER to close.")
-    exit()
+    exit(1)
 
 
 # If files are passed as arguments to the script, process those, and ignore any in the folder designated in the config.
@@ -322,11 +331,16 @@ if len(sys.argv) > 1:
     files.pop(0)
 
 else:
-    path_to_files = config["path_to_files"]
+
+    if config["files_folder"] == "files_to_process":
+        path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["files_folder"])
+    else:
+        path_to_files = config["files_folder"]
+
     # Get filenames, but ignore subfolders.
     files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
 
-# If no files are found, log, notify the user and exit.
+# If no files are found, log, notify the user, and exit.
 if len(files) == 0:
     print("No files found to process.  Exiting...")
     logging.info("No files found to process.")
@@ -391,7 +405,7 @@ else:
                     "file_name": os.path.basename(files[x])
                     }
 
-        if files[x]['file_name'] != "config.toml" and files[x]['file_name'] != "PLACE_FILES_TO_SCAN_HERE":
+        if files[x]['file_name'] not in  ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
             add_file_to_upload(rs_platform, api_key, client_id, upload_id, files[x]['file_name'], files[x]['file_path'])
             shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'], files[x]['file_path'] + "/archive/" + files[x]['file_name'])
         x += 1

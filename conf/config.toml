@@ -7,8 +7,10 @@ api-key = ''
 # You may uncomment this parameter and enter the desired network ID for your upload here if you already know it.
 #network_id = 
 
-# Specify the path to the folder containing the files you wish to upload
-path_to_files = 'files_to_process'
+# Specify the path to the folder containing the files you wish to upload.
+# If you update this, please use the absolute path to your desired folder.
+files_folder = 'files_to_process'
 
 # Specify the path to the folder you would like to use for logging.
-path_to_logs = 'logs'
+# If you update this, please use the absolute path to your desired folder.
+log_folder = 'logs'
