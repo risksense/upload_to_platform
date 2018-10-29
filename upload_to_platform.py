@@ -1,8 +1,7 @@
 ###################################################
 #
-#  Written By: Burr Webb
-#  For RiskSense, Inc.
-#  2018
+#  RiskSense, Inc.
+#  October 2018
 #  v0.1
 #
 ###################################################
@@ -290,10 +289,10 @@ def read_config_file(filename):
 
     try:
         toml_data = open(filename).read()
-    except:
+    except Exception:
         print("Error reading configuration file.  Please check for formatting errors.")
-        close = input("Please press ENTER to close.")
-        exit()
+        hold_open = input("Please press ENTER to close.")
+        exit(1)
 
     data = toml.loads(toml_data)
 
@@ -326,12 +325,13 @@ if api_key == "":
 
 # If files are passed as arguments to the script, process those, and ignore any in the folder designated in the config.
 # This allows for the option to deploy the script as an executable with drag-and-drop functionality.
+
 if len(sys.argv) > 1:
     files = list(sys.argv)
     files.pop(0)
+    path_to_files = None
 
 else:
-
     if config["files_folder"] == "files_to_process":
         path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["files_folder"])
     else:
@@ -405,7 +405,7 @@ else:
                     "file_name": os.path.basename(files[x])
                     }
 
-        if files[x]['file_name'] not in  ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
+        if files[x]['file_name'] not in ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
             add_file_to_upload(rs_platform, api_key, client_id, upload_id, files[x]['file_name'], files[x]['file_path'])
             shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'], files[x]['file_path'] + "/archive/" + files[x]['file_name'])
         x += 1
