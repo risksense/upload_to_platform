@@ -11,7 +11,7 @@
       - `pip install requests`
 
 
-[Download version 0.1](https://github.com/risksense/upload_to_platform/releases/download/0.1/upload_to_platform.zip)
+[Download version 0.2](https://github.com/risksense/upload_to_platform/releases/download/0.2/upload_to_platform.zip)
 
 
 ## Overview
