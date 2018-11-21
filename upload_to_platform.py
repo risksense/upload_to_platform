@@ -1,9 +1,8 @@
 ###################################################
-#
+#  Upload to Platform
 #  RiskSense, Inc.
-#  October 2018
-#  v0.1
-#
+#  November 2018
+#  version 0.3
 ###################################################
 
 import json
@@ -17,38 +16,85 @@ import shutil
 import requests
 
 
-#########################
-#
+###################################
 #  Get Client ID
-#
-#########################
+###################################
 def get_client_id(platform, key):
 
-    logging.info("Getting Client ID")
-    url = platform + "/api/v1/client"
+    url = platform + "/api/v1/client?size=150"
+
     header = {'x-api-key': key,
               'content-type': 'application\json'
               }
 
     raw_client_id_response = requests.get(url, headers=header)
-
     json_client_id_response = json.loads(raw_client_id_response.text)
 
     if raw_client_id_response.status_code == 200:
-        found_id = json_client_id_response['_embedded']['clients'][0]['id']
 
+        if json_client_id_response['page']['totalElements'] == 1:
+            found_id = json_client_id_response['_embedded']['clients'][0]['id']
+
+        else:
+            all_found_ids = json_client_id_response['_embedded']['clients']
+            print()
+            print("Available Client IDs associated with your account: ")
+            print()
+
+            x = 0
+            while x < len(all_found_ids):
+                print(f"{x} - {all_found_ids[x]['name']}")
+                x += 1
+
+            selected_id = input("Enter the number above that is associated with the client you would like to select: ")
+
+            if selected_id.isdigit() and int(selected_id) >= 0 and int(selected_id) < len(all_found_ids):
+                found_id = all_found_ids[int(selected_id)]['id']
+            else:
+                print("You have made an invalid selection.")
+                found_id = 0
     else:
-        print(f"Error Getting Client ID: Status Code returned was {raw_client_id_response.status_code}")
-        exit()
+        print()
+        print("Unable to retrieve Client IDs.  Exiting.")
+        print(f"Status Returned: {raw_client_id_response.status_code}")
+        print(raw_client_id_response.text)
+        found_id = 0
+        print()
+        exit(1)
 
     return found_id
 
 
-#########################
-#
+###################################
+#  Validate Client ID
+###################################
+def validate_client_id(client, platform, key):
+
+    validity = False
+    url = platform + "/api/v1/client/" + str(client)
+
+    header = {'x-api-key': key,
+              'content-type': 'application\json'
+              }
+
+    raw_client_id_response = requests.get(url, headers=header)
+    json_client_id_response = json.loads(raw_client_id_response.text)
+
+    if raw_client_id_response.status_code == 200 and json_client_id_response['id'] == client:
+        validity = True
+    else:
+        print(f"Unable to validate provided client ID ({client})")
+        print()
+        print(f"Returned Status Code:{raw_client_id_response.status_code}")
+        print(f"Returned Text: {raw_client_id_response.text}")
+        print()
+
+    return validity
+
+
+###################################
 #  Find Network ID
-#
-#########################
+###################################
 def find_network_id(platform, key, client):
 
     logging.info("Getting Network ID")
@@ -65,11 +111,14 @@ def find_network_id(platform, key, client):
         logging.info("Customer search string: %s", search_value)
 
         logging.info("Querying network IDs based on search string")
+
         url = platform + "/api/v1/client/" + str(client) + "/network/search"
+
         header = {'x-api-key': key,
                   'Content-Type': "application/json",
                   'Cache-Control': "no-cache"
                   }
+
         body = {"filters": [
             {
                 "field": "name",
@@ -111,22 +160,21 @@ def find_network_id(platform, key, client):
         elif raw_network_search_response.status_code == 200 and json_network_search_response['page']['totalElements'] == 0:
             print()
             print("No such network found.")
-            hold_open = input("Press ENTER to close.")
+            input("Press ENTER to close.")
             print()
             exit(1)
 
         else:
-            print(f"An error occurred during the search for your network.  Status code returned was {raw_network_search_response.status_code}")
+            print(f"An error occurred during the search for your network.  Status code "
+                  f"returned was {raw_network_search_response.status_code}")
             return
 
     return network
 
 
-##############################
-#
+###################################
 #  Create a New Assessment
-#
-##############################
+###################################
 def create_new_assessment(platform, key, client, name, start_date, notes):
 
     logging.info("Creating new assessment.")
@@ -155,12 +203,13 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
     return created_id
 
 
-##################################
-#
+###################################
 #  Create Upload for Assessment
-#
-##################################
+###################################
 def create_upload(platform, key, assessment, network, client):
+
+    today = datetime.date.today()
+    current_time = time.time()
 
     logging.info("Creating new upload.")
 
@@ -188,11 +237,9 @@ def create_upload(platform, key, assessment, network, client):
     return new_upload_id
 
 
-#########################
-#
+###################################
 #  Add File to Upload
-#
-#########################
+###################################
 def add_file_to_upload(platform, key, client, upload, file_name, file_path):
 
     logging.info("Adding file to upload: %s", file_name)
@@ -217,11 +264,9 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
         logging.info(raw_add_file_response.text)
 
 
-##############################
-#
+###################################
 #  Start Processing Upload
-#
-##############################
+###################################
 def begin_processing(platform, key, client, upload):
 
     logging.info("Starting platform processing")
@@ -244,11 +289,9 @@ def begin_processing(platform, key, client, upload):
         return
 
 
-############################################################
-#
+###################################
 #  Check Status of Upload
-#
-############################################################
+###################################
 def check_upload_state(platform, key, client, upload):
 
     logging.info("Checking status of the upload processing")
@@ -277,11 +320,9 @@ def check_upload_state(platform, key, client, upload):
     return state
 
 
-############################################################
-#
+###################################
 #  Read Configuration File
-#
-############################################################
+###################################
 def read_config_file(filename):
 
     print()
@@ -289,9 +330,12 @@ def read_config_file(filename):
 
     try:
         toml_data = open(filename).read()
-    except Exception:
+    except Exception as ex:
         print("Error reading configuration file.  Please check for formatting errors.")
-        hold_open = input("Please press ENTER to close.")
+        print()
+        print(ex)
+        print()
+        input("Please press ENTER to close.")
         exit(1)
 
     data = toml.loads(toml_data)
@@ -299,141 +343,155 @@ def read_config_file(filename):
     return data
 
 
-##########################################################
-#
+###################################
 #  MAIN BODY
-#
-##########################################################
+###################################
+def main():
+    conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
+    config = read_config_file(conf_file)
 
-conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
-config = read_config_file(conf_file)
+    log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["log_folder"], 'uploads.log')
 
-log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["log_folder"], 'uploads.log')
+    # Specify Settings For the Log
+    logging.basicConfig(filename=log_file, level=logging.DEBUG, format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
-# Specify Settings For the Log
-logging.basicConfig(filename=log_file, level=logging.DEBUG, format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    rs_platform = config["platform"]
+    api_key = config["api-key"]
 
-rs_platform = config["platform"]
-api_key = config["api-key"]
+    if api_key == "":
+        print("No API Key configured.  Please add your API Key to the configuration file.")
+        logging.info("No API Key configured.  Please add your API Key to the configuration file.")
+        do_not_close = input("Please press ENTER to close.")
+        exit(1)
 
-if api_key == "":
-    print("No API Key configured.  Please add your API Key to the configuration file.")
-    logging.info("No API Key configured.  Please add your API Key to the configuration file.")
-    do_not_close = input("Please press ENTER to close.")
-    exit(1)
+    # If files are passed as arguments to the script, process those, and ignore any in the folder designated
+    # in the config. This allows for the option to deploy the script as an executable with drag-and-drop
+    # functionality.
 
+    if len(sys.argv) > 1:
+        files = list(sys.argv)
+        files.pop(0)
+        path_to_files = None
 
-# If files are passed as arguments to the script, process those, and ignore any in the folder designated in the config.
-# This allows for the option to deploy the script as an executable with drag-and-drop functionality.
-
-if len(sys.argv) > 1:
-    files = list(sys.argv)
-    files.pop(0)
-    path_to_files = None
-
-else:
-    if config["files_folder"] == "files_to_process":
-        path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["files_folder"])
     else:
-        path_to_files = config["files_folder"]
+        if config["files_folder"] == "files_to_process":
+            path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["files_folder"])
+        else:
+            path_to_files = config["files_folder"]
 
-    # Get filenames, but ignore subfolders.
-    files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
+        # Get filenames, but ignore subfolders.
+        files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
 
-# If no files are found, log, notify the user, and exit.
-if len(files) == 0:
-    print("No files found to process.  Exiting...")
-    logging.info("No files found to process.")
+    # If no files are found, log, notify the user, and exit.
+    if len(files) == 0:
+        print("No files found to process.  Exiting...")
+        logging.info("No files found to process.")
+        print()
+        input("Please press ENTER to close.")
+        exit()
+
+    logging.info(" *** Configuration read.  Files to process identified. Starting Script. ***")
+    print("*** Configuration read.  Files to process identified. Starting Script. ***")
+
+    if "client_id" in config:
+        client_id = config["client_id"]
+    else:
+        client_id = get_client_id(rs_platform, api_key)
+        if client_id == 0:
+            print()
+            print("Exiting.")
+            exit(1)
+
+    process_state = ""
+
+    today = datetime.date.today()
+    current_time = time.time()
+
+    logging.info("Date: %s", today)
+    logging.info("Time: %s", current_time)
+
+    assessment_name = "assmnt_" + str(today) + "_" + str(current_time)
+    assessment_start_date = str(today)
+    assessment_notes = "Assessment generated via upload_to_platform.py."
+
     print()
-    do_not_close = input("Please press ENTER to close.")
-    exit()
+    print("This tool will now create a new assessment and upload files for scanning...")
+    print()
 
-logging.info(" *** Configuration read.  Files to process identified. Starting Script. ***")
-print("*** Configuration read.  Files to process identified. Starting Script. ***")
+    if "network_id" in config:
+        network_id = config["network_id"]
+    else:
+        network_id = find_network_id(rs_platform, api_key, client_id)
 
-process_state = ""
+    assessment_id = create_new_assessment(rs_platform, api_key, client_id, assessment_name, assessment_start_date, assessment_notes)
+    upload_id = create_upload(rs_platform, api_key, assessment_id, network_id, client_id)
 
-today = datetime.date.today()
-current_time = time.time()
+    # Log pertinent session information
+    logging.info("")
+    logging.info(" ------- Session Info ---------")
+    logging.info(" Client ID: %s ", client_id)
+    logging.info(" Network ID: %s ", network_id)
+    logging.info(" Assessment Name: %s", assessment_name)
+    logging.info(" Assessment ID: %s", assessment_id)
+    logging.info(" Assessment Start Date: %s", assessment_start_date)
+    logging.info(" Assessment Notes: %s", assessment_notes)
+    logging.info(" Upload ID: %s", upload_id)
+    logging.info(" Path to Files: %s", path_to_files)
+    logging.info(" Files: %s", files)
+    logging.info(" -----------------------------")
+    print()
 
-logging.info("Date: %s", today)
-logging.info("Time: %s", current_time)
+    if len(sys.argv) == 1:
+        for file in files:
+            add_file_to_upload(rs_platform, api_key, client_id, upload_id, file, path_to_files)
+            shutil.move(path_to_files + "/" + file, path_to_files + "/archive/" + file)
 
-assessment_name = "assmnt_" + str(today) + "_" + str(current_time)
-assessment_start_date = str(today)
-assessment_notes = "Assessment generated via upload_to_platform.py."
+    else:
+        x = 0
+        while x < len(files):
+            files[x] = {"file_path": os.path.dirname(files[x]),
+                        "file_name": os.path.basename(files[x])
+                        }
 
-print()
-print("This tool will now create a new assessment and upload files for scanning...")
-print()
+            if files[x]['file_name'] not in ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
+                add_file_to_upload(rs_platform, api_key, client_id, upload_id, files[x]['file_name'], files[x]['file_path'])
+                shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'], files[x]['file_path'] + "/archive/" + files[x]['file_name'])
+            x += 1
 
-client_id = get_client_id(rs_platform, api_key)
+    print("")
+    print("Beginning processing of uploaded files.")
+    print()
+    print(" *  The RiskSense Platform is now processing your uploaded files. If you prefer  *")
+    print(" *  not to wait, you may hit CTRL+C now to end the script if you would rather    *")
+    print(" *  check the status by manually logging in to the RiskSense platform later.     *")
+    print()
 
-if "network_id" in config:
-    network_id = config["network_id"]
-else:
-    network_id = find_network_id(rs_platform, api_key, client_id)
-
-assessment_id = create_new_assessment(rs_platform, api_key, client_id, assessment_name, assessment_start_date, assessment_notes)
-upload_id = create_upload(rs_platform, api_key, assessment_id, network_id, client_id)
-
-
-# Log pertinent session information
-logging.info("")
-logging.info(" ------- Session Info ---------")
-logging.info(" Client ID: %s ", client_id)
-logging.info(" Network ID: %s ", network_id)
-logging.info(" Assessment Name: %s", assessment_name)
-logging.info(" Assessment ID: %s", assessment_id)
-logging.info(" Assessment Start Date: %s", assessment_start_date)
-logging.info(" Assessment Notes: %s", assessment_notes)
-logging.info(" Upload ID: %s", upload_id)
-logging.info(" Path to Files: %s", path_to_files)
-logging.info(" Files: %s", files)
-logging.info(" -----------------------------")
-print()
-
-if len(sys.argv) == 1:
-    for file in files:
-        add_file_to_upload(rs_platform, api_key, client_id, upload_id, file, path_to_files)
-        shutil.move(path_to_files + "/" + file, path_to_files + "/archive/" + file)
-
-else:
-    x = 0
-    while x < len(files):
-        files[x] = {"file_path": os.path.dirname(files[x]),
-                    "file_name": os.path.basename(files[x])
-                    }
-
-        if files[x]['file_name'] not in ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
-            add_file_to_upload(rs_platform, api_key, client_id, upload_id, files[x]['file_name'], files[x]['file_path'])
-            shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'], files[x]['file_path'] + "/archive/" + files[x]['file_name'])
-        x += 1
-
-print("")
-print("Beginning processing of uploaded files.")
-print()
-print(" *  The RiskSense Platform is now processing your uploaded files. If you prefer  *")
-print(" *  not to wait, you may hit CTRL+C now to end the script if you would rather    *")
-print(" *  check the status by manually logging in to the RiskSense platform later.     *")
-print()
-
-begin_processing(rs_platform, api_key, client_id, upload_id)
-time.sleep(15)
-
-while process_state != "COMPLETE":
-    process_state = check_upload_state(rs_platform, api_key, client_id, upload_id)
-
-    if process_state != "COMPLETE":
-        print(f"Process state is {process_state}. Please wait...")
-
-    elif process_state == "ERROR":
-        break
-
+    begin_processing(rs_platform, api_key, client_id, upload_id)
     time.sleep(15)
 
-print()
-print(f"Processing of uploaded file(s) has ended. State: {process_state}")
-logging.info("Processing of uploaded files has ended.  State: %s", process_state)
+    while process_state != "COMPLETE":
+        process_state = check_upload_state(rs_platform, api_key, client_id, upload_id)
 
-hold_open = input("Hit ENTER to close.")
+        if process_state != "COMPLETE":
+            print(f"Process state is {process_state}. Please wait...")
+
+        elif process_state == "ERROR":
+            break
+
+        time.sleep(15)
+
+    print()
+    print(f"Processing of uploaded file(s) has ended. State: {process_state}")
+    logging.info("Processing of uploaded files has ended.  State: %s", process_state)
+
+    hold_open = input("Hit ENTER to close.")
+
+
+###################################
+#
+# Execute Script
+#
+###################################
+
+if __name__ == "__main__":
+    main()
