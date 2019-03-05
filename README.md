@@ -1,4 +1,5 @@
 # Risksense - Upload to Platform
+[Download version 0.3](https://github.com/risksense/upload_to_platform/releases/download/v0.3/upload_to_platform.zip)
 
 ## Requirements
 
@@ -6,12 +7,10 @@
     - This script has been tested using Python 3.7
  - Python Modules (recommend to install using pip):
     - toml
-      - `pip install toml`
     - requests
-      - `pip install requests`
-
     - progressbar2
-      - `pip install progressbar2`
+   
+   `pip install -r requirements.txt`
 
 ## Overview
 This Python script enables the upload of scan files to the Risksense platform via the REST API.
