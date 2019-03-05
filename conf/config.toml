@@ -4,9 +4,6 @@ platform = 'https://platform.risksense.com'
 # The API Token can be generated in the RiskSense UI, under User Settings.
 api-key = ''
 
-# You may uncomment this parameter and enter the desired network ID for your upload here if you already know it.
-#network_id = 
-
 # Specify the path to the folder containing the files you wish to upload.
 # If you update this, please use the absolute path to your desired folder.
 files_folder = 'files_to_process'
@@ -14,3 +11,9 @@ files_folder = 'files_to_process'
 # Specify the path to the folder you would like to use for logging.
 # If you update this, please use the absolute path to your desired folder.
 log_folder = 'logs'
+
+# You may uncomment this parameter and enter the desired network ID for your upload here if you already know it.
+#network_id =
+
+# You may uncomment this parameter and enter the desired client ID for your upload here if you already know it.
+#client_id =
