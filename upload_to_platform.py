@@ -1,31 +1,45 @@
-###################################################
-#  Upload to Platform
-#  RiskSense, Inc.
-#  November 2018
-#  version 0.3
-###################################################
+""" ******************************************************************
+
+Name        : upload_to_platform.py
+Project     : Upload to Platform
+Description : Uploads files to the RiskSense platform, and kicks off
+              the processing of those files.
+Copyright   : (c) RiskSense, Inc.
+License     : Proprietary
+
+****************************************************************** """
 
 import json
 import time
+import shutil
 import datetime
 import sys
 import os
 import logging
 import toml
-import shutil
 import requests
+import progressbar
 
 
-###################################
-#  Get Client ID
-###################################
 def get_client_id(platform, key):
+
+    """
+    Get the client ID associated with the specified API key.  Does
+    not currently support multiplatform users.
+
+    :param platform:    URL of platform
+    :param key:         API key
+
+    :return:    Integer.  The client ID to be used while uploading
+                the files.
+    """
 
     url = platform + "/api/v1/client?size=150"
 
-    header = {'x-api-key': key,
-              'content-type': 'application\json'
-              }
+    header = {
+        'x-api-key': key,
+        'content-type': 'application/json'
+    }
 
     raw_client_id_response = requests.get(url, headers=header)
     json_client_id_response = json.loads(raw_client_id_response.text)
@@ -41,6 +55,9 @@ def get_client_id(platform, key):
             print("Available Client IDs associated with your account: ")
             print()
 
+            #  Sort list all_found_ids by client name.
+            all_found_ids = sorted(all_found_ids, key=lambda k: k['name'])
+
             x = 0
             while x < len(all_found_ids):
                 print(f"{x} - {all_found_ids[x]['name']}")
@@ -50,9 +67,11 @@ def get_client_id(platform, key):
 
             if selected_id.isdigit() and int(selected_id) >= 0 and int(selected_id) < len(all_found_ids):
                 found_id = all_found_ids[int(selected_id)]['id']
+                print(f"Found ID: {found_id}")
             else:
                 print("You have made an invalid selection.")
                 found_id = 0
+
     else:
         print()
         print("Unable to retrieve Client IDs.  Exiting.")
@@ -65,37 +84,52 @@ def get_client_id(platform, key):
     return found_id
 
 
-###################################
-#  Validate Client ID
-###################################
 def validate_client_id(client, platform, key):
 
+    """
+    Validates that a client ID is associated with the specified
+    API key.
+
+    :param client:      Client ID to verify
+    :param platform:    URL of platform
+    :param key:         API key
+
+    :return:    Boolean indication as to whether or not the
+                client ID is valid.
+    """
+
     validity = False
+
     url = platform + "/api/v1/client/" + str(client)
 
-    header = {'x-api-key': key,
-              'content-type': 'application\json'
-              }
+    header = {
+        'x-api-key': key,
+        'content-type': 'application/json'
+    }
 
     raw_client_id_response = requests.get(url, headers=header)
     json_client_id_response = json.loads(raw_client_id_response.text)
 
     if raw_client_id_response.status_code == 200 and json_client_id_response['id'] == client:
         validity = True
-    else:
-        print(f"Unable to validate provided client ID ({client})")
-        print()
-        print(f"Returned Status Code:{raw_client_id_response.status_code}")
-        print(f"Returned Text: {raw_client_id_response.text}")
-        print()
 
     return validity
 
 
-###################################
-#  Find Network ID
-###################################
 def find_network_id(platform, key, client):
+
+    """
+    Find the network IDs associated with a client, and have the user
+    select which should be used for the upload.
+
+    :param platform:    URL of platform
+    :param key:         API key
+    :param client:      Client ID to verify
+
+    :return:    The selected Network ID
+    """
+
+    network = 0
 
     logging.info("Getting Network ID")
 
@@ -114,19 +148,21 @@ def find_network_id(platform, key, client):
 
         url = platform + "/api/v1/client/" + str(client) + "/network/search"
 
-        header = {'x-api-key': key,
-                  'Content-Type': "application/json",
-                  'Cache-Control': "no-cache"
-                  }
+        header = {
+            'x-api-key': key,
+            'Content-Type': "application/json",
+            'Cache-Control': "no-cache"
+        }
 
-        body = {"filters": [
-            {
-                "field": "name",
-                "exclusive": False,
-                "operator": "LIKE",
-                "value": search_value
-            }
-        ],
+        body = {
+            "filters": [
+                {
+                    "field": "name",
+                    "exclusive": False,
+                    "operator": "LIKE",
+                    "value": search_value
+                }
+            ],
             "projection": "basic",
             "sort": [
                 {
@@ -141,12 +177,15 @@ def find_network_id(platform, key, client):
         raw_network_search_response = requests.post(url, headers=header, data=json.dumps(body))
         json_network_search_response = json.loads(raw_network_search_response.text)
 
-        if raw_network_search_response.status_code == 200 and json_network_search_response['page']['totalElements'] != 0:
+        if raw_network_search_response.status_code == 200 and \
+                json_network_search_response['page']['totalElements'] != 0:
+
             z = 0
             network_list = []
             while z < len(json_network_search_response['_embedded']['networks']):
                 if json_network_search_response['_embedded']['networks'][z]['clientId'] == client:
-                    network_list.append([json_network_search_response['_embedded']['networks'][z]['id'], json_network_search_response['_embedded']['networks'][z]['name']])
+                    network_list.append([json_network_search_response['_embedded']['networks'][z]['id'],
+                                         json_network_search_response['_embedded']['networks'][z]['name']])
                 z += 1
 
             y = 0
@@ -157,7 +196,9 @@ def find_network_id(platform, key, client):
             list_id = input("Please enter the number that corresponds with your network: ")
             network = network_list[int(list_id)][0]
 
-        elif raw_network_search_response.status_code == 200 and json_network_search_response['page']['totalElements'] == 0:
+        elif raw_network_search_response.status_code == 200 and \
+                json_network_search_response['page']['totalElements'] == 0:
+
             print()
             print("No such network found.")
             input("Press ENTER to close.")
@@ -172,10 +213,23 @@ def find_network_id(platform, key, client):
     return network
 
 
-###################################
-#  Create a New Assessment
-###################################
 def create_new_assessment(platform, key, client, name, start_date, notes):
+
+    """
+    Creates a new assessment for the uploaded file(s) to be associated with.
+
+    :param platform:    URL of platform
+    :param key:         API key
+    :param client:      Client ID to verify
+    :param name:        The name your assessment should be known by.
+    :param start_date:  The start date for the assessment
+    :param notes:       Notes to be associated with the assessment.
+
+    :return:    Integer. The ID that the platform has associated with
+                the created assessment.
+    """
+
+    created_id = 0
 
     logging.info("Creating new assessment.")
     logging.debug("New assessment name: %s", name)
@@ -183,14 +237,18 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
     logging.debug("New assessment notes: %s", notes)
 
     url = platform + "/api/v1/client/" + str(client) + "/assessment"
-    header = {'x-api-key': key,
-              'Content-Type': "application/json",
-              'Cache-Control': "no-cache"
-              }
-    body = {"name": name,
-            "startDate": start_date,
-            "notes": notes
-            }
+
+    header = {
+        'x-api-key': key,
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+
+    body = {
+        "name": name,
+        "startDate": start_date,
+        "notes": notes
+    }
 
     raw_assessment_response = requests.post(url, headers=header, data=json.dumps(body))
     json_assessment_response = json.loads(raw_assessment_response.text)
@@ -203,10 +261,20 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
     return created_id
 
 
-###################################
-#  Create Upload for Assessment
-###################################
 def create_upload(platform, key, assessment, network, client):
+
+    """
+    Create an upload to be associated with the assessment.
+
+    :param platform:    URL of platform
+    :param key:         API key
+    :param assessment:  Assessment ID to associate the upload with
+    :param network:     Network ID to associate the upload with
+    :param client:      Client ID to verify
+
+    :return:    Integer.  The ID that the platform has associated
+                with the created upload.
+    """
 
     today = datetime.date.today()
     current_time = time.time()
@@ -216,14 +284,18 @@ def create_upload(platform, key, assessment, network, client):
     upload_name = "upload-" + str(today) + "-" + str(current_time)
 
     url = platform + "/api/v1/client/" + str(client) + "/upload"
-    header = {'x-api-key': key,
-              'Content-Type': "application/json",
-              'Cache-Control': "no-cache"
-              }
-    body = {'assessmentId': assessment,
-            'networkId': network,
-            'name': upload_name
-            }
+
+    header = {
+        'x-api-key': key,
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
+
+    body = {
+        'assessmentId': assessment,
+        'networkId': network,
+        'name': upload_name
+    }
 
     raw_upload_response = requests.post(url, headers=header, data=json.dumps(body))
     json_upload_json_response = json.loads(raw_upload_response.text)
@@ -237,70 +309,95 @@ def create_upload(platform, key, assessment, network, client):
     return new_upload_id
 
 
-###################################
-#  Add File to Upload
-###################################
 def add_file_to_upload(platform, key, client, upload, file_name, file_path):
+
+    """
+    Add a scan file to an upload.
+
+    :param platform:    URL of platform
+    :param key:         API key
+    :param client:      Client ID to verify
+    :param upload:      ID of the upload to associate the file with
+    :param file_name:   Name of the file to be added to the upload
+    :param file_path:   Path to the file to be added to the upload
+    """
 
     logging.info("Adding file to upload: %s", file_name)
     logging.debug("File Path: %s", file_path)
 
-    print(f"Uploading file - {file_name}...")
-
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/file"
-    header = {'x-api-key': key,
-              'Cache-Control': "no-cache"
-              }
+
+    header = {
+        'x-api-key': key,
+        'Cache-Control': "no-cache"
+    }
 
     upload_file = {'scanFile': (file_name, open(file_path + "/" + file_name, 'rb'))}
 
     raw_add_file_response = requests.post(url, headers=header, files=upload_file)
-    # json_add_file_response = json.loads(raw_add_file_response.text)
 
     if raw_add_file_response.status_code != 201:
         print(f"Error uploading file {file_name}.  Status Code returned was {raw_add_file_response.status_code}")
         print(raw_add_file_response.text)
-        logging.info("Error uploading file " + file_name + ". Status Code returned was " + raw_add_file_response.status_code)
+        logging.info("Error uploading file " + file_name + ". "
+                     "Status Code returned was " + str(raw_add_file_response.status_code))
         logging.info(raw_add_file_response.text)
 
 
-###################################
-#  Start Processing Upload
-###################################
 def begin_processing(platform, key, client, upload):
+
+    """
+    Begin processing of the files uploaded.
+
+    :param platform:    URL of platform
+    :param key:         API key
+    :param client:      Client ID to verify
+    :param upload:      ID of the upload to associate the file with
+
+    """
 
     logging.info("Starting platform processing")
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/start"
-    header = {'x-api-key': key,
-              'Content-Type': "application/json",
-              'Cache-Control': "no-cache"
-              }
+    header = {
+        'x-api-key': key,
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
 
     raw_begin_processing_response = requests.post(url, headers=header)
 
     if raw_begin_processing_response.status_code == 204:
         print("Uploaded file(s) now processing.  This may take a while. Please wait...")
-        return
+
     else:
         print("An error has occurred when trying to start processing of your upload(s).")
         print(raw_begin_processing_response.text)
         logging.info(raw_begin_processing_response.text)
-        return
 
 
-###################################
-#  Check Status of Upload
-###################################
 def check_upload_state(platform, key, client, upload):
+
+    """
+    Check the state of an upload.
+
+    :param platform:    URL of platform
+    :param key:         API key
+    :param client:      Client ID to verify
+    :param upload:      ID of the upload to associate the file with
+
+    :return:  String.  The state of the upload.
+    """
 
     logging.info("Checking status of the upload processing")
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload)
-    header = {'x-api-key': key,
-              'Content-Type': "application/json",
-              'Cache-Control': "no-cache"
-              }
+
+    header = {
+        'x-api-key': key,
+        'Content-Type': "application/json",
+        'Cache-Control': "no-cache"
+    }
 
     raw_check_upload_state_response = requests.get(url, headers=header)
     json_check_upload_state_response = json.loads(raw_check_upload_state_response.text)
@@ -312,6 +409,7 @@ def check_upload_state(platform, key, client, upload):
     else:
         print(f"An error has occurred while attempting to check the state of your upload.")
         logging.info("An error has occurred while attempting to check the state of the upload.")
+
         print(f"Status Code returned was {raw_check_upload_state_response.status_code}")
         logging.info("Status Code returned was: %s", raw_check_upload_state_response.status_code)
 
@@ -320,16 +418,24 @@ def check_upload_state(platform, key, client, upload):
     return state
 
 
-###################################
-#  Read Configuration File
-###################################
 def read_config_file(filename):
+
+    """
+    Reads a TOML-formatted configuration file.
+
+    :param filename:    Path to the TOML-formatted file to be read.
+
+    :return:  Dictionary of values contained in config file.
+    """
+
+    toml_data = {}
 
     print()
     print("Reading configuration file...")
 
     try:
         toml_data = open(filename).read()
+
     except Exception as ex:
         print("Error reading configuration file.  Please check for formatting errors.")
         print()
@@ -343,17 +449,18 @@ def read_config_file(filename):
     return data
 
 
-###################################
-#  MAIN BODY
-###################################
 def main():
+
+    """ Main body of script """
+
     conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
     config = read_config_file(conf_file)
 
     log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["log_folder"], 'uploads.log')
 
-    # Specify Settings For the Log
-    logging.basicConfig(filename=log_file, level=logging.DEBUG, format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+    #  Specify Settings For the Log
+    logging.basicConfig(filename=log_file, level=logging.DEBUG,
+                        format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
     rs_platform = config["platform"]
     api_key = config["api-key"]
@@ -361,12 +468,12 @@ def main():
     if api_key == "":
         print("No API Key configured.  Please add your API Key to the configuration file.")
         logging.info("No API Key configured.  Please add your API Key to the configuration file.")
-        do_not_close = input("Please press ENTER to close.")
+        input("Please press ENTER to close.")
         exit(1)
 
-    # If files are passed as arguments to the script, process those, and ignore any in the folder designated
-    # in the config. This allows for the option to deploy the script as an executable with drag-and-drop
-    # functionality.
+    #  If files are passed as arguments to the script, process those, and ignore any in the folder designated
+    #  in the config. This allows for the option to deploy the script as an executable with drag-and-drop
+    #  functionality.
 
     if len(sys.argv) > 1:
         files = list(sys.argv)
@@ -379,24 +486,38 @@ def main():
         else:
             path_to_files = config["files_folder"]
 
-        # Get filenames, but ignore subfolders.
+        #  Get filenames, but ignore subfolders.
         files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
 
-    # If no files are found, log, notify the user, and exit.
+        x = 0
+        while x < len(files):
+            if files[x] == "PLACE_FILES_TO_SCAN_HERE.txt":
+                files.pop(x)
+            x += 1
+
+    #  If no files are found, log, notify the user, and exit.
     if len(files) == 0:
         print("No files found to process.  Exiting...")
         logging.info("No files found to process.")
         print()
         input("Please press ENTER to close.")
-        exit()
 
     logging.info(" *** Configuration read.  Files to process identified. Starting Script. ***")
     print("*** Configuration read.  Files to process identified. Starting Script. ***")
 
     if "client_id" in config:
         client_id = config["client_id"]
+        valid = validate_client_id(client_id, rs_platform, api_key)
+
+        if not valid:
+            print(f"Unable to validate client ID provided in config file: {client_id}")
+            print(f"Please provide a valid client ID in your config file, or re-comment out "
+                  f"the setting in the config file. Exiting...")
+            exit(1)
+
     else:
         client_id = get_client_id(rs_platform, api_key)
+        print(f"Debug Client ID: {client_id}")
         if client_id == 0:
             print()
             print("Exiting.")
@@ -415,7 +536,7 @@ def main():
     assessment_notes = "Assessment generated via upload_to_platform.py."
 
     print()
-    print("This tool will now create a new assessment and upload files for scanning...")
+    print("This tool will now create a new assessment and upload files for scanning.")
     print()
 
     if "network_id" in config:
@@ -423,10 +544,12 @@ def main():
     else:
         network_id = find_network_id(rs_platform, api_key, client_id)
 
-    assessment_id = create_new_assessment(rs_platform, api_key, client_id, assessment_name, assessment_start_date, assessment_notes)
+    assessment_id = create_new_assessment(rs_platform, api_key, client_id,
+                                          assessment_name, assessment_start_date, assessment_notes)
+
     upload_id = create_upload(rs_platform, api_key, assessment_id, network_id, client_id)
 
-    # Log pertinent session information
+    #  Log pertinent session information
     logging.info("")
     logging.info(" ------- Session Info ---------")
     logging.info(" Client ID: %s ", client_id)
@@ -441,24 +564,43 @@ def main():
     logging.info(" -----------------------------")
     print()
 
+    print("Uploading Files...")
+
     if len(sys.argv) == 1:
-        for file in files:
-            add_file_to_upload(rs_platform, api_key, client_id, upload_id, file, path_to_files)
-            shutil.move(path_to_files + "/" + file, path_to_files + "/archive/" + file)
+
+        with progressbar.ProgressBar(max_value=len(files)) as bar:
+
+            bar_counter = 1
+
+            for file in files:
+                add_file_to_upload(rs_platform, api_key, client_id, upload_id, file, path_to_files)
+                shutil.move(path_to_files + "/" + file, path_to_files + "/archive/" + file)
+                bar.update(bar_counter)
+                time.sleep(0.1)
+                bar_counter += 1
 
     else:
-        x = 0
-        while x < len(files):
-            files[x] = {"file_path": os.path.dirname(files[x]),
-                        "file_name": os.path.basename(files[x])
-                        }
 
-            if files[x]['file_name'] not in ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
-                add_file_to_upload(rs_platform, api_key, client_id, upload_id, files[x]['file_name'], files[x]['file_path'])
-                shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'], files[x]['file_path'] + "/archive/" + files[x]['file_name'])
-            x += 1
+        with progressbar.ProgressBar(max_value=len(files)) as bar:
+            x = 0
+            while x < len(files):
+                files[x] = {"file_path": os.path.dirname(files[x]),
+                            "file_name": os.path.basename(files[x])
+                            }
 
-    print("")
+                if files[x]['file_name'] not in ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
+
+                    add_file_to_upload(rs_platform, api_key, client_id,
+                                       upload_id, files[x]['file_name'], files[x]['file_path'])
+
+                    bar.update(x)
+
+                    shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'],
+                                files[x]['file_path'] + "/archive/" + files[x]['file_name'])
+
+                x += 1
+
+    print()
     print("Beginning processing of uploaded files.")
     print()
     print(" *  The RiskSense Platform is now processing your uploaded files. If you prefer  *")
@@ -472,26 +614,19 @@ def main():
     while process_state != "COMPLETE":
         process_state = check_upload_state(rs_platform, api_key, client_id, upload_id)
 
-        if process_state != "COMPLETE":
-            print(f"Process state is {process_state}. Please wait...")
-
-        elif process_state == "ERROR":
+        if process_state == "ERROR":
             break
 
+        print(f"Process state is {process_state}. Please wait...")
         time.sleep(15)
 
     print()
     print(f"Processing of uploaded file(s) has ended. State: {process_state}")
     logging.info("Processing of uploaded files has ended.  State: %s", process_state)
 
-    hold_open = input("Hit ENTER to close.")
+    input("Hit ENTER to close.")
 
 
-###################################
-#
-# Execute Script
-#
-###################################
-
+#  Execute Script
 if __name__ == "__main__":
     main()

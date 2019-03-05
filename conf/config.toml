@@ -16,4 +16,4 @@ log_folder = 'logs'
 #network_id =
 
 # You may uncomment this parameter and enter the desired client ID for your upload here if you already know it.
-#client_id =
+# client_id =
