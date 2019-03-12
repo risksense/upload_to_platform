@@ -12,6 +12,9 @@ files_folder = 'files_to_process'
 # If you update this, please use the absolute path to your desired folder.
 log_folder = 'logs'
 
+# Trigger URBA upon completion of upload processing.
+auto_urba = true
+
 # You may uncomment this parameter and enter the desired network ID for your upload here if you already know it.
 #network_id =
 

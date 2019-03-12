@@ -344,7 +344,7 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
         logging.info(raw_add_file_response.text)
 
 
-def begin_processing(platform, key, client, upload):
+def begin_processing(platform, key, client, upload, run_urba):
 
     """
     Begin processing of the files uploaded.
@@ -353,19 +353,26 @@ def begin_processing(platform, key, client, upload):
     :param key:         API key
     :param client:      Client ID to verify
     :param upload:      ID of the upload to associate the file with
+    :param run_urba:    Boolean indicating whether or not URBA should be run
+                        upon completion of processing.
 
     """
 
     logging.info("Starting platform processing")
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/start"
+
     header = {
         'x-api-key': key,
         'Content-Type': "application/json",
         'Cache-Control': "no-cache"
     }
 
-    raw_begin_processing_response = requests.post(url, headers=header)
+    body = {
+        "autoUrba": run_urba
+    }
+
+    raw_begin_processing_response = requests.post(url, headers=header, data=json.dumps(body))
 
     if raw_begin_processing_response.status_code == 204:
         print("Uploaded file(s) now processing.  This may take a while. Please wait...")
@@ -464,6 +471,7 @@ def main():
 
     rs_platform = config["platform"]
     api_key = config["api-key"]
+    auto_urba = config["auto_urba"]
 
     if api_key == "":
         print("No API Key configured.  Please add your API Key to the configuration file.")
@@ -584,9 +592,10 @@ def main():
         with progressbar.ProgressBar(max_value=len(files)) as bar:
             x = 0
             while x < len(files):
-                files[x] = {"file_path": os.path.dirname(files[x]),
-                            "file_name": os.path.basename(files[x])
-                            }
+                files[x] = {
+                    "file_path": os.path.dirname(files[x]),
+                    "file_name": os.path.basename(files[x])
+                    }
 
                 if files[x]['file_name'] not in ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
 
@@ -608,7 +617,7 @@ def main():
     print(" *  check the status by manually logging in to the RiskSense platform later.     *")
     print()
 
-    begin_processing(rs_platform, api_key, client_id, upload_id)
+    begin_processing(rs_platform, api_key, client_id, upload_id, auto_urba)
     time.sleep(15)
 
     while process_state != "COMPLETE":
