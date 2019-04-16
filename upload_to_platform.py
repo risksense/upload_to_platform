@@ -16,6 +16,7 @@ import datetime
 import sys
 import os
 import logging
+
 import toml
 import requests
 import progressbar
@@ -28,10 +29,13 @@ def get_client_id(platform, key):
     not currently support multiplatform users.
 
     :param platform:    URL of platform
-    :param key:         API key
+    :type  platform:    str
 
-    :return:    Integer.  The client ID to be used while uploading
-                the files.
+    :param key:         API key
+    :type  key:         str
+
+    :return:    The client ID to be used while uploading the files.
+    :rtype:     int
     """
 
     url = platform + "/api/v1/client?size=150"
@@ -91,11 +95,16 @@ def validate_client_id(client, platform, key):
     API key.
 
     :param client:      Client ID to verify
-    :param platform:    URL of platform
-    :param key:         API key
+    :type  client:      int
 
-    :return:    Boolean indication as to whether or not the
-                client ID is valid.
+    :param platform:    URL of platform
+    :type  platform:    str
+
+    :param key:         API key
+    :type  key:         str
+
+    :return:    Indication as to whether or not the client ID is valid.
+    :rtype:     bool
     """
 
     validity = False
@@ -123,8 +132,13 @@ def find_network_id(platform, key, client):
     select which should be used for the upload.
 
     :param platform:    URL of platform
+    :type  platform:    str
+
     :param key:         API key
-    :param client:      Client ID to verify
+    :type  key:         str
+
+    :param client:      Client ID
+    :type  client:      int
 
     :return:    The selected Network ID
     """
@@ -219,14 +233,25 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
     Creates a new assessment for the uploaded file(s) to be associated with.
 
     :param platform:    URL of platform
-    :param key:         API key
-    :param client:      Client ID to verify
-    :param name:        The name your assessment should be known by.
-    :param start_date:  The start date for the assessment
-    :param notes:       Notes to be associated with the assessment.
+    :type  platform:    str
 
-    :return:    Integer. The ID that the platform has associated with
-                the created assessment.
+    :param key:         API key
+    :type  key:         str
+
+    :param client:      Client ID
+    :type  client:      int
+
+    :param name:        The name your assessment should be known by.
+    :type  name:        str
+
+    :param start_date:  The start date for the assessment
+    :type  start_date:  str
+
+    :param notes:       Notes to be associated with the assessment.
+    :type  notes:       str
+
+    :return:    The ID that the platform has associated with the created assessment.
+    :rtype:     int
     """
 
     created_id = 0
@@ -267,13 +292,22 @@ def create_upload(platform, key, assessment, network, client):
     Create an upload to be associated with the assessment.
 
     :param platform:    URL of platform
-    :param key:         API key
-    :param assessment:  Assessment ID to associate the upload with
-    :param network:     Network ID to associate the upload with
-    :param client:      Client ID to verify
+    :type  platform:    str
 
-    :return:    Integer.  The ID that the platform has associated
-                with the created upload.
+    :param key:         API key
+    :type  key:         str
+
+    :param assessment:  Assessment ID to associate the upload with
+    :type  assessment:  int
+
+    :param network:     Network ID to associate the upload with
+    :type  network:     int
+
+    :param client:      Client ID
+    :type  client:      int
+
+    :return:    The ID that the platform has associated with the created upload.
+    :rtype:     int
     """
 
     today = datetime.date.today()
@@ -315,11 +349,22 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
     Add a scan file to an upload.
 
     :param platform:    URL of platform
+    :type  platform:    str
+
     :param key:         API key
-    :param client:      Client ID to verify
+    :type  key:         str
+
+    :param client:      Client ID
+    :type  client:      int
+
     :param upload:      ID of the upload to associate the file with
+    :type  upload:      int
+
     :param file_name:   Name of the file to be added to the upload
+    :type  file_name:   str
+
     :param file_path:   Path to the file to be added to the upload
+    :type  file_path:   str
     """
 
     logging.info("Adding file to upload: %s", file_name)
@@ -350,12 +395,19 @@ def begin_processing(platform, key, client, upload, run_urba):
     Begin processing of the files uploaded.
 
     :param platform:    URL of platform
-    :param key:         API key
-    :param client:      Client ID to verify
-    :param upload:      ID of the upload to associate the file with
-    :param run_urba:    Boolean indicating whether or not URBA should be run
-                        upon completion of processing.
+    :type  platform:    str
 
+    :param key:         API key
+    :type  key:         str
+
+    :param client:      Client ID
+    :type  client:      int
+
+    :param upload:      ID of the upload to associate the file with
+    :type  upload:      int
+
+    :param run_urba:    Indicator whether or not URBA should be run upon completion of processing.
+    :type  run_urba:    bool
     """
 
     logging.info("Starting platform processing")
@@ -374,7 +426,7 @@ def begin_processing(platform, key, client, upload, run_urba):
 
     raw_begin_processing_response = requests.post(url, headers=header, data=json.dumps(body))
 
-    if raw_begin_processing_response.status_code == 204:
+    if raw_begin_processing_response.status_code == 200:
         print("Uploaded file(s) now processing.  This may take a while. Please wait...")
 
     else:
@@ -389,11 +441,19 @@ def check_upload_state(platform, key, client, upload):
     Check the state of an upload.
 
     :param platform:    URL of platform
-    :param key:         API key
-    :param client:      Client ID to verify
-    :param upload:      ID of the upload to associate the file with
+    :type  platform:    str
 
-    :return:  String.  The state of the upload.
+    :param key:         API key
+    :type  key:         str
+
+    :param client:      Client ID
+    :type  client:      int
+
+    :param upload:      ID of the upload to associate the file with
+    :type  upload:      int
+
+    :return:    The state of the upload.
+    :rtype:     str
     """
 
     logging.info("Checking status of the upload processing")
@@ -431,8 +491,10 @@ def read_config_file(filename):
     Reads a TOML-formatted configuration file.
 
     :param filename:    Path to the TOML-formatted file to be read.
+    :type  filename:    str
 
-    :return:  Dictionary of values contained in config file.
+    :return:  Values contained in config file.
+    :rtype:   dict
     """
 
     toml_data = {}
