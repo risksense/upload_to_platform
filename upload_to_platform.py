@@ -587,7 +587,7 @@ def main():
 
     else:
         client_id = get_client_id(rs_platform, api_key)
-        print(f"Debug Client ID: {client_id}")
+        
         if client_id == 0:
             print()
             print("Exiting.")
