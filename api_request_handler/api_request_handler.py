@@ -5,7 +5,7 @@ Name        : api_request_handler.py
 Module      : api_request_handler
 Description : RiskSense API Request Handler
 Copyright   : (c) RiskSense, Inc.
-License     : ????
+License     : Apache-2.0
 
 ******************************************************************
 """
@@ -17,27 +17,29 @@ import requests
 
 class ApiRequestHandler:
 
-    def __init__(self, api_key, user_agent=None, max_retries=5):
+    def __init__(self, api_key, user_agent=None, max_retries=5, retry_wait_time=1):
 
         """
         Initialize ApiRequestHandler
 
-        :param api_key:     RiskSense Platform API key
-        :type  api_key:     str
+        :param api_key:             RiskSense Platform API key
+        :type  api_key:             str
 
-        :param user_agent:  User-Agent
-        :type  user_agent:  str
+        :param user_agent:          User-Agent
+        :type  user_agent:          str
 
-        :param max_retries  maximum number of retries for a request
-        :type  max_retries  int
+        :param max_retries:         maximum number of retries for a request
+        :type  max_retries:         int
+
+        :param retry_wait_time:     Time to wait (in seconds) when 503 error encountered.
+        :type  retry_wait_time:     int
         """
 
         self.api_key = api_key
         self.retry_counter = 0
-
         self.user_agent = user_agent
-
         self.max_retries = max_retries
+        self.retry_wait_time = retry_wait_time
 
     def make_api_request(self, method, url, body=None, files=None, retry=False):
 
@@ -71,7 +73,7 @@ class ApiRequestHandler:
             return None
 
         header = {
-            "User-Agent": "upload_to_platform",
+            "User-Agent": self.user_agent,
             "x-api-key": self.api_key,
             "content-type": "application/json"
         }
@@ -91,7 +93,7 @@ class ApiRequestHandler:
 
         if response and response.status_code == 503:
 
-            time.sleep(1)
+            time.sleep(self.retry_wait_time)
             print(f"503 error returned, retrying (this was attempt number {self.retry_counter + 1})...")
             new_response = self.make_api_request(method, url, body, files, retry=True)
 

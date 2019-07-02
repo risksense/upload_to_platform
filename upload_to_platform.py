@@ -5,7 +5,7 @@ Project     : Upload to Platform
 Description : Uploads files to the RiskSense platform, and kicks off
               the processing of those files.
 Copyright   : (c) RiskSense, Inc.
-License     : Proprietary
+License     : Apache-2.0
 
 ****************************************************************** """
 
@@ -21,6 +21,10 @@ from api_request_handler import ApiRequestHandler
 
 import toml
 import progressbar
+
+__version__ = "0.5"
+
+USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
 
 def get_client_id(platform, key):
@@ -39,7 +43,7 @@ def get_client_id(platform, key):
     :rtype:     int
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     url = platform + "/api/v1/client?size=150"
 
@@ -106,7 +110,7 @@ def validate_client_id(client, platform, key):
     :rtype:     bool
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     validity = False
 
@@ -140,7 +144,7 @@ def find_network_id(platform, key, client):
     :return:    The selected Network ID
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     network = 0
 
@@ -248,7 +252,7 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
     :rtype:     int
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     created_id = 0
 
@@ -301,7 +305,7 @@ def create_upload(platform, key, assessment, network, client):
     :rtype:     int
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     today = datetime.date.today()
     current_time = time.time()
@@ -355,7 +359,7 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
     :type  file_path:   str
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     logging.info("Adding file to upload: %s", file_name)
     logging.debug("File Path: %s", file_path)
@@ -395,7 +399,7 @@ def begin_processing(platform, key, client, upload, run_urba):
     :type  run_urba:    bool
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     logging.info("Starting platform processing")
 
@@ -437,7 +441,7 @@ def check_upload_state(platform, key, client, upload):
     :rtype:     str
     """
 
-    request_handler = ApiRequestHandler(key)
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     logging.info("Checking status of the upload processing")
 
@@ -500,6 +504,10 @@ def main():
 
     """ Main body of script """
 
+    print()
+    print(f"RiskSense - Upload to Platform v{__version__}")
+    print()
+
     conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
     config = read_config_file(conf_file)
 
@@ -514,8 +522,8 @@ def main():
     auto_urba = config["auto_urba"]
 
     if api_key == "":
-        print("No API Key configured.  Please add your API Key to the configuration file.")
-        logging.info("No API Key configured.  Please add your API Key to the configuration file.")
+        print("No API Key configured.  Please add your API Key to the configuration file (conf/config.toml).")
+        logging.info("No API Key configured.  Please add your API Key to the configuration file (conf/config.toml).")
         input("Please press ENTER to close.")
         exit(1)
 
