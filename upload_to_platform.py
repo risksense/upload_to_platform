@@ -17,8 +17,9 @@ import sys
 import os
 import logging
 
+from api_request_handler import ApiRequestHandler
+
 import toml
-import requests
 import progressbar
 
 
@@ -38,14 +39,12 @@ def get_client_id(platform, key):
     :rtype:     int
     """
 
+    request_handler = ApiRequestHandler(key)
+
     url = platform + "/api/v1/client?size=150"
 
-    header = {
-        'x-api-key': key,
-        'content-type': 'application/json'
-    }
+    raw_client_id_response = request_handler.make_api_request("GET", url)
 
-    raw_client_id_response = requests.get(url, headers=header)
     json_client_id_response = json.loads(raw_client_id_response.text)
 
     if raw_client_id_response.status_code == 200:
@@ -107,16 +106,14 @@ def validate_client_id(client, platform, key):
     :rtype:     bool
     """
 
+    request_handler = ApiRequestHandler(key)
+
     validity = False
 
     url = platform + "/api/v1/client/" + str(client)
 
-    header = {
-        'x-api-key': key,
-        'content-type': 'application/json'
-    }
+    raw_client_id_response = request_handler.make_api_request("GET", url)
 
-    raw_client_id_response = requests.get(url, headers=header)
     json_client_id_response = json.loads(raw_client_id_response.text)
 
     if raw_client_id_response.status_code == 200 and json_client_id_response['id'] == client:
@@ -143,6 +140,8 @@ def find_network_id(platform, key, client):
     :return:    The selected Network ID
     """
 
+    request_handler = ApiRequestHandler(key)
+
     network = 0
 
     logging.info("Getting Network ID")
@@ -161,12 +160,6 @@ def find_network_id(platform, key, client):
         logging.info("Querying network IDs based on search string")
 
         url = platform + "/api/v1/client/" + str(client) + "/network/search"
-
-        header = {
-            'x-api-key': key,
-            'Content-Type': "application/json",
-            'Cache-Control': "no-cache"
-        }
 
         body = {
             "filters": [
@@ -188,7 +181,8 @@ def find_network_id(platform, key, client):
             "size": 20
         }
 
-        raw_network_search_response = requests.post(url, headers=header, data=json.dumps(body))
+        raw_network_search_response = request_handler.make_api_request("POST", url, body=body)
+
         json_network_search_response = json.loads(raw_network_search_response.text)
 
         if raw_network_search_response.status_code == 200 and \
@@ -254,6 +248,8 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
     :rtype:     int
     """
 
+    request_handler = ApiRequestHandler(key)
+
     created_id = 0
 
     logging.info("Creating new assessment.")
@@ -263,19 +259,14 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
 
     url = platform + "/api/v1/client/" + str(client) + "/assessment"
 
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
-
     body = {
         "name": name,
         "startDate": start_date,
         "notes": notes
     }
 
-    raw_assessment_response = requests.post(url, headers=header, data=json.dumps(body))
+    raw_assessment_response = request_handler.make_api_request("POST", url, body=body)
+
     json_assessment_response = json.loads(raw_assessment_response.text)
 
     if raw_assessment_response.status_code == 201:
@@ -310,6 +301,8 @@ def create_upload(platform, key, assessment, network, client):
     :rtype:     int
     """
 
+    request_handler = ApiRequestHandler(key)
+
     today = datetime.date.today()
     current_time = time.time()
 
@@ -319,19 +312,14 @@ def create_upload(platform, key, assessment, network, client):
 
     url = platform + "/api/v1/client/" + str(client) + "/upload"
 
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
-
     body = {
         'assessmentId': assessment,
         'networkId': network,
         'name': upload_name
     }
 
-    raw_upload_response = requests.post(url, headers=header, data=json.dumps(body))
+    raw_upload_response = request_handler.make_api_request("POST", url, body=body)
+
     json_upload_json_response = json.loads(raw_upload_response.text)
 
     if raw_upload_response.status_code == 201:
@@ -367,19 +355,16 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
     :type  file_path:   str
     """
 
+    request_handler = ApiRequestHandler(key)
+
     logging.info("Adding file to upload: %s", file_name)
     logging.debug("File Path: %s", file_path)
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/file"
 
-    header = {
-        'x-api-key': key,
-        'Cache-Control': "no-cache"
-    }
-
     upload_file = {'scanFile': (file_name, open(file_path + "/" + file_name, 'rb'))}
 
-    raw_add_file_response = requests.post(url, headers=header, files=upload_file)
+    raw_add_file_response = request_handler.make_api_request("POST", url, files=upload_file)
 
     if raw_add_file_response.status_code != 201:
         print(f"Error uploading file {file_name}.  Status Code returned was {raw_add_file_response.status_code}")
@@ -410,21 +395,17 @@ def begin_processing(platform, key, client, upload, run_urba):
     :type  run_urba:    bool
     """
 
+    request_handler = ApiRequestHandler(key)
+
     logging.info("Starting platform processing")
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/start"
-
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
 
     body = {
         "autoUrba": run_urba
     }
 
-    raw_begin_processing_response = requests.post(url, headers=header, data=json.dumps(body))
+    raw_begin_processing_response = request_handler.make_api_request("POST", url, body=body)
 
     if raw_begin_processing_response.status_code == 200:
         print("Uploaded file(s) now processing.  This may take a while. Please wait...")
@@ -456,17 +437,14 @@ def check_upload_state(platform, key, client, upload):
     :rtype:     str
     """
 
+    request_handler = ApiRequestHandler(key)
+
     logging.info("Checking status of the upload processing")
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload)
 
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
+    raw_check_upload_state_response = request_handler.make_api_request("GET", url)
 
-    raw_check_upload_state_response = requests.get(url, headers=header)
     json_check_upload_state_response = json.loads(raw_check_upload_state_response.text)
 
     if raw_check_upload_state_response.status_code == 200:
