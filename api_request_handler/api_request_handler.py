@@ -60,6 +60,8 @@ class ApiRequestHandler:
                     If max retries are reached, an exception is raised.
         """
 
+        response = None
+
         header = {
             "User-Agent": self.user_agent,
             "x-api-key": self.api_key,
