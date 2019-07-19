@@ -23,9 +23,8 @@ from api_request_handler import ApiRequestHandler
 
 import toml
 import progressbar
-import requests
 
-__version__ = "0.5"
+__version__ = "0.5.0"
 
 USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
