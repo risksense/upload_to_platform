@@ -1,5 +1,5 @@
 """
-******************************************************************
+*********************************************************************
 
 Name        : api_request_handler.py
 Module      : api_request_handler
@@ -7,20 +7,21 @@ Description : RiskSense API Request Handler
 Copyright   : (c) RiskSense, Inc.
 License     : Apache-2.0
 
-******************************************************************
+*********************************************************************
 """
 
 import json
-import time
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3 import Retry
 
 
 class ApiRequestHandler:
 
-    def __init__(self, api_key, user_agent=None, max_retries=5, retry_wait_time=1):
+    def __init__(self, api_key, user_agent=None, max_retries=5):
 
         """
-        Initialize ApiRequestHandler
+        Initialize ApiRequestHandler class.
 
         :param api_key:             RiskSense Platform API key
         :type  api_key:             str
@@ -30,47 +31,34 @@ class ApiRequestHandler:
 
         :param max_retries:         maximum number of retries for a request
         :type  max_retries:         int
-
-        :param retry_wait_time:     Time to wait (in seconds) when 503 error encountered.
-        :type  retry_wait_time:     int
         """
 
         self.api_key = api_key
-        self.retry_counter = 0
         self.user_agent = user_agent
         self.max_retries = max_retries
-        self.retry_wait_time = retry_wait_time
 
-    def make_api_request(self, method, url, body=None, files=None, retry=False):
+        self.__retry_counter = 0
+
+    def make_request(self, http_method, url, body=None, files=None):
 
         """
 
-        :param method:      HTTP method to use for request (GET or POST)
-        :type  method:      str
+        :param http_method:      HTTP method to use for request (GET or POST)
+        :type  http_method:      str
 
-        :param url:         URL for API endpoint
-        :type  url:         str
+        :param url:             URL for API endpoint
+        :type  url:             str
 
-        :param body:        Body to be used in API request (if required)
-        :type  body:        dict
+        :param body:            Body to be used in API request (if required)
+        :type  body:            dict
 
-        :param files:       Files to pass to API
-        :type  files:       dict
+        :param files:           Files to pass to API
+        :type  files:           dict
 
-        :param retry:       Indicate whether this is a retry attempt
-        :type  retry:       bool
-
-
-        :return:    The requests module API response object if successfully sent.
-                    A None is returned if max retries reached or invalid HTTP method provided.
+        :return:    The requests module API response object is returned if  request is successfully sent.
+                    A None is returned invalid HTTP method provided.
+                    If max retries are reached, an exception is raised.
         """
-
-        if retry is True:
-            self.increment_retry_counter()
-
-        if self.retry_counter == self.max_retries:
-            print(f"Max number of retries ({self.max_retries}) reached...")
-            return None
 
         header = {
             "User-Agent": self.user_agent,
@@ -78,35 +66,77 @@ class ApiRequestHandler:
             "content-type": "application/json"
         }
 
-        if method.lower() == "get":
+        #  If request is a GET...
+        if http_method.lower() == "get":
+            try:
+                response = self.__requests_retry_session().get(url, headers=header)
+            except requests.exceptions.RequestException:
+                raise
+            except Exception:
+                raise
 
-            response = requests.get(url, headers=header)
+        #  If request is a POST...
+        elif http_method.lower() == "post":
 
-        elif method.lower() == "post":
+            #  If there are files involved for uploading...
+            if files is not None:
+                header.pop('content-type', None)
+                try:
+                    response = self.__requests_retry_session().post(url, headers=header, files=files)
+                except requests.exceptions.RequestException:
+                    raise
+                except Exception:
+                    raise
 
-            response = requests.post(url, headers=header, data=json.dumps(body), files=files)
+            #  If there aren't files involved for uploading, send a regular post request.
+            else:
+                try:
+                    response = self.__requests_retry_session().post(url, headers=header, data=json.dumps(body))
+                except requests.exceptions.RequestException:
+                    raise
+                except Exception:
+                    raise
 
+        #  If request is not a GET or a POST, exit and ask for a supported http method
         else:
-            print(f"Unsupported method provided: {method}")
+            print(f"Unsupported HTTP method provided: {http_method}")
             print("Please provide a supported HTTP method (GET or POST)")
-            return None
-
-        if response and response.status_code == 503:
-
-            time.sleep(self.retry_wait_time)
-            print(f"503 error returned, retrying (this was attempt number {self.retry_counter + 1})...")
-            new_response = self.make_api_request(method, url, body, files, retry=True)
-
-            return new_response
-
-        self.reset_retry_counter()
+            exit(1)
 
         return response
 
-    def reset_retry_counter(self):
+    def __requests_retry_session(self, backoff_factor=0.5, status_forcelist=(429, 502, 503), session=None):
+        session = session or requests.Session()
+        retry = Retry(
+            total=self.max_retries,
+            read=self.max_retries,
+            connect=self.max_retries,
+            backoff_factor=backoff_factor,
+            status_forcelist=status_forcelist,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount('http://', adapter)
+        session.mount('https://', adapter)
+        return session
 
-        self.retry_counter = 0
+    @staticmethod
+    def valid_response(response, success_code):
 
-    def increment_retry_counter(self):
+        """
+        Check to see if API response is valid, and has contains the proper success code.
 
-        self.retry_counter += 1
+        :param response:        Response object from Requests Module
+        :type  response:        object
+
+        :param success_code:    Expected success status code
+        :type  success_code:    int
+
+        :return:    True/False indicating whether or not response is valid.
+        :rtype:     bool
+        """
+
+        if response is not None and response.status_code == success_code:
+            return True
+
+        else:
+            return False
