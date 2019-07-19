@@ -1,13 +1,15 @@
-""" ******************************************************************
+"""
+******************************************************************
 
 Name        : upload_to_platform.py
 Project     : Upload to Platform
 Description : Uploads files to the RiskSense platform, and kicks off
               the processing of those files.
 Copyright   : (c) RiskSense, Inc.
-License     : Proprietary
+License     : Apache-2.0
 
-****************************************************************** """
+******************************************************************
+"""
 
 import json
 import time
@@ -17,9 +19,14 @@ import sys
 import os
 import logging
 
+from api_request_handler import ApiRequestHandler
+
 import toml
-import requests
 import progressbar
+
+__version__ = "0.5.0"
+
+USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
 
 def get_client_id(platform, key):
@@ -38,17 +45,27 @@ def get_client_id(platform, key):
     :rtype:     int
     """
 
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
     url = platform + "/api/v1/client?size=150"
 
-    header = {
-        'x-api-key': key,
-        'content-type': 'application/json'
-    }
+    raw_client_id_response = None
 
-    raw_client_id_response = requests.get(url, headers=header)
-    json_client_id_response = json.loads(raw_client_id_response.text)
+    try:
+        raw_client_id_response = request_handler.make_request("GET", url)
 
-    if raw_client_id_response.status_code == 200:
+    except Exception as ex:
+        print("ERROR.  There was a problem trying to get a list of available client IDs.")
+        print(ex)
+
+        logging.critical("ERROR.  There was a problem trying to get a list of available client IDs.")
+        logging.critical(ex)
+
+        exit(1)
+
+    if request_handler.valid_response(raw_client_id_response, 200):
+
+        json_client_id_response = json.loads(raw_client_id_response.text)
 
         if json_client_id_response['page']['totalElements'] == 1:
             found_id = json_client_id_response['_embedded']['clients'][0]['id']
@@ -107,20 +124,31 @@ def validate_client_id(client, platform, key):
     :rtype:     bool
     """
 
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
     validity = False
 
     url = platform + "/api/v1/client/" + str(client)
 
-    header = {
-        'x-api-key': key,
-        'content-type': 'application/json'
-    }
+    raw_client_id_response = None
 
-    raw_client_id_response = requests.get(url, headers=header)
-    json_client_id_response = json.loads(raw_client_id_response.text)
+    try:
+        raw_client_id_response = request_handler.make_request("GET", url)
 
-    if raw_client_id_response.status_code == 200 and json_client_id_response['id'] == client:
-        validity = True
+    except Exception as ex:
+        print("ERROR. There was a problem validating the client ID.")
+        print(ex)
+
+        logging.critical("ERROR. There was a problem validating the client ID. (Client ID: %s)", client)
+        logging.critical("Exception: \n %s", ex)
+
+        exit(1)
+
+    if request_handler.valid_response(raw_client_id_response, 200):
+        json_client_id_response = json.loads(raw_client_id_response.text)
+
+        if json_client_id_response['id'] == client:
+            validity = True
 
     return validity
 
@@ -141,7 +169,10 @@ def find_network_id(platform, key, client):
     :type  client:      int
 
     :return:    The selected Network ID
+    :rtype:     int
     """
+
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
     network = 0
 
@@ -161,12 +192,6 @@ def find_network_id(platform, key, client):
         logging.info("Querying network IDs based on search string")
 
         url = platform + "/api/v1/client/" + str(client) + "/network/search"
-
-        header = {
-            'x-api-key': key,
-            'Content-Type': "application/json",
-            'Cache-Control': "no-cache"
-        }
 
         body = {
             "filters": [
@@ -188,36 +213,46 @@ def find_network_id(platform, key, client):
             "size": 20
         }
 
-        raw_network_search_response = requests.post(url, headers=header, data=json.dumps(body))
-        json_network_search_response = json.loads(raw_network_search_response.text)
+        raw_network_search_response = None
 
-        if raw_network_search_response.status_code == 200 and \
-                json_network_search_response['page']['totalElements'] != 0:
+        try:
+            raw_network_search_response = request_handler.make_request("POST", url, body=body)
 
-            z = 0
-            network_list = []
-            while z < len(json_network_search_response['_embedded']['networks']):
-                if json_network_search_response['_embedded']['networks'][z]['clientId'] == client:
-                    network_list.append([json_network_search_response['_embedded']['networks'][z]['id'],
-                                         json_network_search_response['_embedded']['networks'][z]['name']])
-                z += 1
+        except Exception as ex:
+            print("ERROR. There was a problem getting a list of available networks from the platform.")
+            print(ex)
 
-            y = 0
-            while y < len(network_list):
-                print(f"{y} - {network_list[y][1]}")
-                y += 1
+            logging.critical("ERROR. There was a problem getting a list of available networks from the platform.")
+            logging.critical("Exception: \n %s", ex)
 
-            list_id = input("Please enter the number that corresponds with your network: ")
-            network = network_list[int(list_id)][0]
-
-        elif raw_network_search_response.status_code == 200 and \
-                json_network_search_response['page']['totalElements'] == 0:
-
-            print()
-            print("No such network found.")
-            input("Press ENTER to close.")
-            print()
             exit(1)
+
+        if request_handler.valid_response(raw_network_search_response, 200):
+            json_network_search_response = json.loads(raw_network_search_response.text)
+
+            if json_network_search_response['page']['totalElements'] != 0:
+                z = 0
+                network_list = []
+                while z < len(json_network_search_response['_embedded']['networks']):
+                    if json_network_search_response['_embedded']['networks'][z]['clientId'] == client:
+                        network_list.append([json_network_search_response['_embedded']['networks'][z]['id'],
+                                             json_network_search_response['_embedded']['networks'][z]['name']])
+                    z += 1
+
+                y = 0
+                while y < len(network_list):
+                    print(f"{y} - {network_list[y][1]}")
+                    y += 1
+
+                list_id = input("Please enter the number that corresponds with your network: ")
+                network = network_list[int(list_id)][0]
+
+            else:
+                print()
+                print("No such network found.")
+                input("Press ENTER to close.")
+                print()
+                exit(1)
 
         else:
             print(f"An error occurred during the search for your network.  Status code "
@@ -254,6 +289,8 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
     :rtype:     int
     """
 
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
     created_id = 0
 
     logging.info("Creating new assessment.")
@@ -263,23 +300,30 @@ def create_new_assessment(platform, key, client, name, start_date, notes):
 
     url = platform + "/api/v1/client/" + str(client) + "/assessment"
 
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
-
     body = {
         "name": name,
         "startDate": start_date,
         "notes": notes
     }
 
-    raw_assessment_response = requests.post(url, headers=header, data=json.dumps(body))
-    json_assessment_response = json.loads(raw_assessment_response.text)
+    raw_assessment_response = None
 
-    if raw_assessment_response.status_code == 201:
+    try:
+        raw_assessment_response = request_handler.make_request("POST", url, body=body)
+
+    except Exception as ex:
+        print("ERROR. Unable to create a new assessment.")
+        print(ex)
+
+        logging.critical("ERROR. There was a problem creating a new assessment.")
+        logging.critical("Exception: \n %s", ex)
+
+        exit(1)
+
+    if request_handler.valid_response(raw_assessment_response, 201):
+        json_assessment_response = json.loads(raw_assessment_response.text)
         created_id = json_assessment_response['id']
+
     else:
         print(f"Error Creating New Assessment.  Status Code returned was {raw_assessment_response.status_code}")
 
@@ -310,6 +354,8 @@ def create_upload(platform, key, assessment, network, client):
     :rtype:     int
     """
 
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
     today = datetime.date.today()
     current_time = time.time()
 
@@ -319,23 +365,30 @@ def create_upload(platform, key, assessment, network, client):
 
     url = platform + "/api/v1/client/" + str(client) + "/upload"
 
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
-
     body = {
         'assessmentId': assessment,
         'networkId': network,
         'name': upload_name
     }
 
-    raw_upload_response = requests.post(url, headers=header, data=json.dumps(body))
-    json_upload_json_response = json.loads(raw_upload_response.text)
+    raw_upload_response = None
 
-    if raw_upload_response.status_code == 201:
+    try:
+        raw_upload_response = request_handler.make_request("POST", url, body=body)
+
+    except Exception as ex:
+        print("ERROR. There was a problem creating a new upload.")
+        print(ex)
+
+        logging.critical("ERROR. There was a problem creating a new upload.")
+        logging.critical("Exception: \n %s", ex)
+
+        exit(1)
+
+    if request_handler.valid_response(raw_upload_response, 201):
+        json_upload_json_response = json.loads(raw_upload_response.text)
         new_upload_id = json_upload_json_response['id']
+
     else:
         print(f"Error creating new upload.  Status Code returned was {raw_upload_response.status_code}")
         return
@@ -367,21 +420,30 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
     :type  file_path:   str
     """
 
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
     logging.info("Adding file to upload: %s", file_name)
     logging.debug("File Path: %s", file_path)
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/file"
 
-    header = {
-        'x-api-key': key,
-        'Cache-Control': "no-cache"
-    }
-
     upload_file = {'scanFile': (file_name, open(file_path + "/" + file_name, 'rb'))}
 
-    raw_add_file_response = requests.post(url, headers=header, files=upload_file)
+    raw_add_file_response = None
 
-    if raw_add_file_response.status_code != 201:
+    try:
+        raw_add_file_response = request_handler.make_request("POST", url, files=upload_file)
+
+    except Exception as ex:
+        print(f"ERROR. There was a problem adding a file ({file_name})to the upload.")
+        print(ex)
+
+        logging.critical("ERROR. There was a problem adding a file (%s)to the upload.", file_name)
+        logging.critical("Exception: \n %s", ex)
+
+        exit(1)
+
+    if not request_handler.valid_response(raw_add_file_response, 201):
         print(f"Error uploading file {file_name}.  Status Code returned was {raw_add_file_response.status_code}")
         print(raw_add_file_response.text)
         logging.info("Error uploading file " + file_name + ". "
@@ -410,28 +472,37 @@ def begin_processing(platform, key, client, upload, run_urba):
     :type  run_urba:    bool
     """
 
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
     logging.info("Starting platform processing")
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/start"
-
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
 
     body = {
         "autoUrba": run_urba
     }
 
-    raw_begin_processing_response = requests.post(url, headers=header, data=json.dumps(body))
+    raw_begin_processing_response = None
 
-    if raw_begin_processing_response.status_code == 200:
+    try:
+        raw_begin_processing_response = request_handler.make_request("POST", url, body=body)
+
+    except Exception as ex:
+        print("ERROR.  There was a problem starting platform processing of the uploaded file(s).")
+        print(ex)
+
+        logging.critical("ERROR.  There was a problem starting platform processing of the uploaded file(s).")
+        logging.critical("Exception: \n %s", ex)
+
+        exit(1)
+
+    if request_handler.valid_response(raw_begin_processing_response, 200):
         print("Uploaded file(s) now processing.  This may take a while. Please wait...")
 
     else:
         print("An error has occurred when trying to start processing of your upload(s).")
         print(raw_begin_processing_response.text)
+
         logging.info(raw_begin_processing_response.text)
 
 
@@ -456,20 +527,27 @@ def check_upload_state(platform, key, client, upload):
     :rtype:     str
     """
 
+    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
     logging.info("Checking status of the upload processing")
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload)
 
-    header = {
-        'x-api-key': key,
-        'Content-Type': "application/json",
-        'Cache-Control': "no-cache"
-    }
+    raw_check_upload_state_response = None
 
-    raw_check_upload_state_response = requests.get(url, headers=header)
-    json_check_upload_state_response = json.loads(raw_check_upload_state_response.text)
+    try:
+        raw_check_upload_state_response = request_handler.make_request("GET", url)
 
-    if raw_check_upload_state_response.status_code == 200:
+    except Exception as ex:
+        print("There was an exception while checking the state of the upload.")
+        logging.critical("There was an exception while checking the state of the upload.")
+        logging.critical(ex)
+
+        state = "EXCEPTION"
+        return state
+
+    if request_handler.valid_response(raw_check_upload_state_response, 200):
+        json_check_upload_state_response = json.loads(raw_check_upload_state_response.text)
         state = json_check_upload_state_response['state']
         logging.debug("State: %s", state)
 
@@ -522,6 +600,10 @@ def main():
 
     """ Main body of script """
 
+    print()
+    print(f"RiskSense - Upload to Platform v{__version__}")
+    print()
+
     conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
     config = read_config_file(conf_file)
 
@@ -536,8 +618,8 @@ def main():
     auto_urba = config["auto_urba"]
 
     if api_key == "":
-        print("No API Key configured.  Please add your API Key to the configuration file.")
-        logging.info("No API Key configured.  Please add your API Key to the configuration file.")
+        print("No API Key configured.  Please add your API Key to the configuration file (conf/config.toml).")
+        logging.info("No API Key configured.  Please add your API Key to the configuration file (conf/config.toml).")
         input("Please press ENTER to close.")
         exit(1)
 
@@ -571,6 +653,7 @@ def main():
         logging.info("No files found to process.")
         print()
         input("Please press ENTER to close.")
+        exit(1)
 
     logging.info(" *** Configuration read.  Files to process identified. Starting Script. ***")
     print("*** Configuration read.  Files to process identified. Starting Script. ***")
