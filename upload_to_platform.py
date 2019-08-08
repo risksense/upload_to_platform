@@ -1,5 +1,5 @@
 """
-******************************************************************
+***********************************************************************
 
 Name        : upload_to_platform.py
 Project     : Upload to Platform
@@ -8,7 +8,7 @@ Description : Uploads files to the RiskSense platform, and kicks off
 Copyright   : (c) RiskSense, Inc.
 License     : Apache-2.0
 
-******************************************************************
+***********************************************************************
 """
 
 import json
@@ -19,10 +19,11 @@ import sys
 import os
 import logging
 
-from api_request_handler import ApiRequestHandler
-
 import toml
 import progressbar
+
+from api_request_handler import ApiRequestHandler
+
 
 __version__ = "0.5.1"
 
@@ -639,7 +640,7 @@ def main():
             path_to_files = config["files_folder"]
 
         # Make sure that the path to the directory actually exists
-        if not(os.path.isdir(path_to_files)):
+        if not os.path.isdir(path_to_files):
             print(f"The path provided as the location of the upload files is not a directory.  Please update. your config.")
             print(f"Path provided: {path_to_files}")
             input("Please press ENTER to close.")
@@ -647,7 +648,7 @@ def main():
 
         # Check and make sure that archive folder exists.
         archive_folder_path = os.path.join(path_to_files, "archive")
-        if not(os.path.isdir(archive_folder_path)):
+        if not os.path.isdir(archive_folder_path):
             print(f"There is not an \"archive\" subfolder within the folder that contains the upload files.")
             print("Please create a subfolder called \"archive\" within the folder that contains the upload files.")
             input("Please press ENTER to close.")
@@ -685,7 +686,7 @@ def main():
 
     else:
         client_id = get_client_id(rs_platform, api_key)
-        
+
         if client_id == 0:
             print()
             print("Exiting.")

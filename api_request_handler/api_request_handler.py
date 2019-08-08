@@ -18,6 +18,8 @@ from urllib3 import Retry
 
 class ApiRequestHandler:
 
+    """ API Request Handler """
+
     def __init__(self, api_key, user_agent=None, max_retries=5):
 
         """

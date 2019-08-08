@@ -1,6 +1,6 @@
 # Risksense - Upload to Platform
 
-[Download version 0.5.0](https://github.com/risksense/upload_to_platform/releases/download/0.5.0/upload_to_platform_v0.5.0.zip)
+[Download version 0.5.1](https://github.com/risksense/upload_to_platform/releases/download/0.5.1/upload_to_platform_v0.5.1.zip)
 
 ## Requirements
 
@@ -11,12 +11,21 @@
     - requests
     - progressbar2
    
-   `pip install -r requirements.txt`
+   
+   ```
+   pip install -r requirements.txt
+   
+    -- OR --
+   
+   pip3 install -r requirements.txt   
+   ```
+     
+    
 
 ## Overview
-This Python script enables the upload of scan files to the Risksense platform via the REST API.
+This Python script enables the upload of scan files to the RiskSense platform via the REST API.
 
-When run, the script will take all files from a designated folder, upload them to the Risksense platform, and begin processing of those files.  Once the files have been successfully uploaded, the files will be moved into an "archive" subfolder within the original folder.
+When run, the script will take all files from a designated folder, upload them to the RiskSense platform, and begin processing of those files.  Once the files have been successfully uploaded, the files will be moved into an "archive" subfolder within the original folder.
 
 
 
@@ -30,7 +39,7 @@ When run, the script will take all files from a designated folder, upload them t
  - If desired, change the paths of the folders containing the files to process and log file.
    - If you specify a custom path_to_files, be sure to create a subfolder named "archive" within the folder specified.
 
-```
+```toml
 platform = 'https://platform.risksense.com'
 
 # The API Token can be generated in the RiskSense UI, under User Settings.
@@ -56,6 +65,10 @@ auto_urba = true
 
 
 ##### Running upload_to_platform.py:
-```
- $ python upload_to_platform.py
-```
+```commandline
+python upload_to_platform.py
+
+ -- OR --
+
+python3 upload_to_platform.py
+ ```
