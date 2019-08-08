@@ -24,7 +24,7 @@ from api_request_handler import ApiRequestHandler
 import toml
 import progressbar
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
@@ -637,6 +637,21 @@ def main():
             path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["files_folder"])
         else:
             path_to_files = config["files_folder"]
+
+        # Make sure that the path to the directory actually exists
+        if not(os.path.isdir(path_to_files)):
+            print(f"The path provided as the location of the upload files is not a directory.  Please update. your config.")
+            print(f"Path provided: {path_to_files}")
+            input("Please press ENTER to close.")
+            exit(1)
+
+        # Check and make sure that archive folder exists.
+        archive_folder_path = os.path.join(path_to_files, "archive")
+        if not(os.path.isdir(archive_folder_path)):
+            print(f"There is not an \"archive\" subfolder within the folder that contains the upload files.")
+            print("Please create a subfolder called \"archive\" within the folder that contains the upload files.")
+            input("Please press ENTER to close.")
+            exit(1)
 
         #  Get filenames, but ignore subfolders.
         files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
