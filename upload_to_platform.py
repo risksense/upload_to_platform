@@ -1,15 +1,12 @@
-"""
-***********************************************************************
-
-Name        : upload_to_platform.py
-Project     : Upload to Platform
-Description : Uploads files to the RiskSense platform, and kicks off
-              the processing of those files.
-Copyright   : (c) RiskSense, Inc.
-License     : Apache-2.0
-
-***********************************************************************
-"""
+""" *******************************************************************************************************************
+|
+|  Name         :  upload_to_platform.py
+|  Project      :  Upload to Platform
+|  Description  :  Uploads files to the RiskSense platform, and kicks off the processing of those files.
+|  Copyright    :  (c) RiskSense, Inc.
+|  License      :  Apache-2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+|
+******************************************************************************************************************* """
 
 import json
 import time
@@ -33,8 +30,7 @@ USER_AGENT_STRING = "upload_to_platform_v" + __version__
 def get_client_id(platform, key):
 
     """
-    Get the client ID associated with the specified API key.  Does
-    not currently support multiplatform users.
+    Get the client ID associated with the specified API key.  Does not currently support multi-platform users.
 
     :param platform:    URL of platform
     :type  platform:    str
@@ -109,8 +105,7 @@ def get_client_id(platform, key):
 def validate_client_id(client, platform, key):
 
     """
-    Validates that a client ID is associated with the specified
-    API key.
+    Validates that a client ID is associated with the specified API key.
 
     :param client:      Client ID to verify
     :type  client:      int
@@ -157,8 +152,7 @@ def validate_client_id(client, platform, key):
 def find_network_id(platform, key, client):
 
     """
-    Find the network IDs associated with a client, and have the user
-    select which should be used for the upload.
+    Find the network IDs associated with a client, and have the user select which should be used for the upload.
 
     :param platform:    URL of platform
     :type  platform:    str
@@ -681,7 +675,7 @@ def main():
         if not valid:
             print(f"Unable to validate client ID provided in config file: {client_id}")
             print(f"Please provide a valid client ID in your config file, or re-comment out "
-                  f"the setting in the config file. Exiting...")
+                  f"the \"client_id\"setting in the config file. Exiting...")
             exit(1)
 
     else:
@@ -800,3 +794,19 @@ def main():
 #  Execute Script
 if __name__ == "__main__":
     main()
+
+"""
+   Copyright 2019 RiskSense, Inc.
+   
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+   
+   http://www.apache.org/licenses/LICENSE-2.0
+   
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+"""
