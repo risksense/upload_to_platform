@@ -634,16 +634,22 @@ def main():
 
         # Make sure that the path to the directory actually exists
         if not os.path.isdir(path_to_files):
-            print(f"The path provided as the location of the upload files is not a directory.  Please update. your config.")
+            print()
+            print(" **** ERROR ****")
+            print(f"The path provided as the location of the upload files is not a directory.  Please update your config.")
             print(f"Path provided: {path_to_files}")
+            print()
             input("Please press ENTER to close.")
             exit(1)
 
         # Check and make sure that archive folder exists.
         archive_folder_path = os.path.join(path_to_files, "archive")
         if not os.path.isdir(archive_folder_path):
+            print()
+            print(" **** ERROR ****")
             print(f"There is not an \"archive\" subfolder within the folder that contains the upload files.")
             print("Please create a subfolder called \"archive\" within the folder that contains the upload files.")
+            print()
             input("Please press ENTER to close.")
             exit(1)
 
