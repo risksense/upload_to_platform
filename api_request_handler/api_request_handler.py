@@ -1,10 +1,10 @@
 """ *******************************************************************************************************************
 |
-|  Name        : api_request_handler.py
-|  Module      : api_request_handler
-|  Description : RiskSense API Request Handler
-|  Copyright   : (c) RiskSense, Inc.
-|  License     : Apache-2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+|  Name        :  api_request_handler.py
+|  Module      :  api_request_handler
+|  Description :  RiskSense API Request Handler
+|  Copyright   :  (c) RiskSense, Inc.
+|  License     :  Apache-2.0 (http://www.apache.org/licenses/LICENSE-2.0)
 |
 ******************************************************************************************************************* """
 
@@ -23,28 +23,26 @@ class ApiRequestHandler:
         """
         Initialize ApiRequestHandler class.
 
-        :param api_key:             RiskSense Platform API key
-        :type  api_key:             str
+        :param api_key:         RiskSense Platform API key
+        :type  api_key:         str
 
-        :param user_agent:          User-Agent
-        :type  user_agent:          str
+        :param user_agent:      User-Agent
+        :type  user_agent:      str
 
-        :param max_retries:         maximum number of retries for a request
-        :type  max_retries:         int
+        :param max_retries:     maximum number of retries for a request
+        :type  max_retries:     int
         """
 
         self.api_key = api_key
         self.user_agent = user_agent
         self.max_retries = max_retries
 
-        self.__retry_counter = 0
-
     def make_request(self, http_method, url, body=None, files=None):
 
         """
 
-        :param http_method:      HTTP method to use for request (GET or POST)
-        :type  http_method:      str
+        :param http_method:     HTTP method to use for request (GET or POST)
+        :type  http_method:     str
 
         :param url:             URL for API endpoint
         :type  url:             str
@@ -101,9 +99,8 @@ class ApiRequestHandler:
 
         #  If request is not a GET or a POST, exit and ask for a supported http method
         else:
-            print(f"Unsupported HTTP method provided: {http_method}")
-            print("Please provide a supported HTTP method (GET or POST)")
-            exit(1)
+            print(f"ERROR: Unsupported HTTP method provided ({http_method}).")
+            raise ValueError
 
         return response
 

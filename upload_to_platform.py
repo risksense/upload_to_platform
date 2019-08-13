@@ -23,7 +23,6 @@ from api_request_handler import ApiRequestHandler
 
 
 __version__ = "0.5.1"
-
 USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
 
@@ -44,7 +43,7 @@ def get_client_id(platform, key):
 
     request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
-    url = platform + "/api/v1/client?size=150"
+    url = platform + "/api/v1/client?size=250"
 
     raw_client_id_response = None
 
@@ -602,15 +601,15 @@ def main():
     conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
     config = read_config_file(conf_file)
 
+    rs_platform = config["platform"]
+    api_key = config["api-key"]
+    auto_urba = config["auto_urba"]
+
     log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["log_folder"], 'uploads.log')
 
     #  Specify Settings For the Log
     logging.basicConfig(filename=log_file, level=logging.DEBUG,
                         format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-
-    rs_platform = config["platform"]
-    api_key = config["api-key"]
-    auto_urba = config["auto_urba"]
 
     if api_key == "":
         print("No API Key configured.  Please add your API Key to the configuration file (conf/config.toml).")
