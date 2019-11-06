@@ -43,9 +43,12 @@ def get_client_id(platform, key):
     :rtype:     int
     """
 
+    print(f"Determining available Client IDs...")
+    print()
+
     request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
 
-    url = platform + "/api/v1/client?size=150"
+    url = platform + "/api/v1/client?size=300"
 
     raw_client_id_response = None
 
@@ -53,12 +56,12 @@ def get_client_id(platform, key):
         raw_client_id_response = request_handler.make_request("GET", url)
 
     except Exception as ex:
-        print("ERROR.  There was a problem trying to get a list of available client IDs.")
+        message = "ERROR.  There was a problem trying to get a list of available client IDs.  Exiting."
+        print(message)
         print(ex)
 
-        logging.critical("ERROR.  There was a problem trying to get a list of available client IDs.")
+        logging.critical(message)
         logging.critical(ex)
-
         exit(1)
 
     if request_handler.valid_response(raw_client_id_response, 200):
@@ -71,7 +74,8 @@ def get_client_id(platform, key):
         else:
             all_found_ids = json_client_id_response['_embedded']['clients']
             print()
-            print("Available Client IDs associated with your account: ")
+            print("These are the available Client IDs associated with your account. ")
+            print("You will need to select which of your clients to associate this upload with.")
             print()
 
             #  Sort list all_found_ids by client name.
@@ -82,11 +86,11 @@ def get_client_id(platform, key):
                 print(f"{x} - {all_found_ids[x]['name']}")
                 x += 1
 
-            selected_id = input("Enter the number above that is associated with the client you would like to select: ")
+            selected_id = input("Enter the number above that is associated with the client that you would like to select: ")
 
             if selected_id.isdigit() and int(selected_id) >= 0 and int(selected_id) < len(all_found_ids):
                 found_id = all_found_ids[int(selected_id)]['id']
-                print(f"Found ID: {found_id}")
+                print()
             else:
                 print("You have made an invalid selection.")
                 found_id = 0
@@ -176,7 +180,10 @@ def find_network_id(platform, key, client):
 
     logging.info("Getting Network ID")
 
-    network_id_known = input("Do you know the network ID for your upload? (y/n) ")
+    print()
+    print("An upload must be associated with a network.")
+    network_id_known = input("Do you happen to know the network ID for your upload? (y/n) ")
+    print()
     logging.info("Does customer know network ID? %s", network_id_known)
 
     if network_id_known.lower() == 'y':
@@ -184,6 +191,8 @@ def find_network_id(platform, key, client):
         return network
 
     else:
+        print(f"We will search your networks to help you identify which to use.")
+        print()
         search_value = input("Input search string for Network name search (or hit 'ENTER' to list all): ")
         logging.info("Customer search string: %s", search_value)
 
@@ -433,19 +442,18 @@ def add_file_to_upload(platform, key, client, upload, file_name, file_path):
         raw_add_file_response = request_handler.make_request("POST", url, files=upload_file)
 
     except Exception as ex:
-        print(f"ERROR. There was a problem adding a file ({file_name})to the upload.")
+        message = "ERROR. There was a problem adding a file ({})to the upload.".format(file_name)
+        print(message)
         print(ex)
-
-        logging.critical("ERROR. There was a problem adding a file (%s)to the upload.", file_name)
+        logging.critical(message)
         logging.critical("Exception: \n %s", ex)
-
         exit(1)
 
     if not request_handler.valid_response(raw_add_file_response, 201):
-        print(f"Error uploading file {file_name}.  Status Code returned was {raw_add_file_response.status_code}")
+        message = "Error uploading file {}.  Status Code returned was {}".format(file_name, raw_add_file_response.status_code)
+        print(message)
         print(raw_add_file_response.text)
-        logging.info("Error uploading file " + file_name + ". "
-                     "Status Code returned was " + str(raw_add_file_response.status_code))
+        logging.info(message)
         logging.info(raw_add_file_response.text)
 
 
@@ -486,12 +494,11 @@ def begin_processing(platform, key, client, upload, run_urba):
         raw_begin_processing_response = request_handler.make_request("POST", url, body=body)
 
     except Exception as ex:
-        print("ERROR.  There was a problem starting platform processing of the uploaded file(s).")
+        message = "ERROR.  There was a problem starting platform processing of the uploaded file(s)."
+        print(message)
         print(ex)
-
-        logging.critical("ERROR.  There was a problem starting platform processing of the uploaded file(s).")
+        logging.critical(message)
         logging.critical("Exception: \n %s", ex)
-
         exit(1)
 
     if request_handler.valid_response(raw_begin_processing_response, 200):
@@ -573,9 +580,6 @@ def read_config_file(filename):
 
     toml_data = {}
 
-    print()
-    print("Reading configuration file...")
-
     try:
         toml_data = open(filename).read()
 
@@ -596,81 +600,105 @@ def main():
 
     """ Main body of script """
 
-    print()
-    print(f"RiskSense - Upload to Platform v{__version__}")
-    print()
+    print(f"\n\n        *** RiskSense -- {USER_AGENT_STRING} ***")
+    print('Upload scan files to the RiskSense platform via the RiskSense API. \n\n')
 
     conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
     config = read_config_file(conf_file)
 
-    log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["log_folder"], 'uploads.log')
+    if 'client_id' in config:
+        client_id = config['client_id']
+    else:
+        client_id = None
+
+    if 'network_id' in config:
+        network_id = config['network_id']
+    else:
+        network_id = None
+
+    #  Arg Parsing.  Use values from config file as defaults.
+    parser = argparse.ArgumentParser(description='The following arguments can be used to override those in the config file:',
+                                     formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=60))
+    parser.add_argument('-p', '--platform', help='Platform URL', type=str, required=False, default=config['platform'])
+    parser.add_argument('-a', '--api_key', help='API Key', type=str, required=False, default=config['api-key'])
+    parser.add_argument('-f', '--files_folder', help='Path to folder containing scan files', type=str, required=False, default=config['files_folder'])
+    parser.add_argument('-l', '--log_folder', help='Path to folder to write log', type=str, required=False, default=config['log_folder'])
+    parser.add_argument('-u', '--auto_urba', help='Run auto-URBA?', type=bool, choices=[True, False], required=False, default=config['auto_urba'])
+    parser.add_argument('-c', '--client_id', help='Client ID', type=int, required=False, default=client_id)
+    parser.add_argument('-n', '--network_id', help='Network ID', type=int, required=False, default=network_id)
+
+    args = parser.parse_args()
+
+    rs_platform = args.platform
+    api_key = args.api_key
+    file_path = args.files_folder
+    log_folder = args.log_folder
+    auto_urba = args.auto_urba
+    client_id = args.client_id
+    network_id = args.network_id
+
+    if args.auto_urba == 'true' or args.auto_urba == 'True':
+        auto_urba = True
+    elif args.auto_urba == 'false' or args.auto_urba == 'False':
+        auto_urba = False
+
+    if client_id is not None:
+        client_id = int(client_id)
+
+    if network_id is not None:
+        network_id = int(network_id)
+
+    log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), log_folder, 'uploads.log')
 
     #  Specify Settings For the Log
     logging.basicConfig(filename=log_file, level=logging.DEBUG,
                         format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
-    rs_platform = config["platform"]
-    api_key = config["api-key"]
-    auto_urba = config["auto_urba"]
-
     if api_key == "":
-        print("No API Key configured.  Please add your API Key to the configuration file (conf/config.toml).")
-        logging.info("No API Key configured.  Please add your API Key to the configuration file (conf/config.toml).")
+        message = "No API Key configured.  Please add your API Key to the configuration file (conf/config.toml)."
+        print(message)
+        logging.info(message)
         input("Please press ENTER to close.")
         exit(1)
 
-    #  If files are passed as arguments to the script, process those, and ignore any in the folder designated
-    #  in the config. This allows for the option to deploy the script as an executable with drag-and-drop
-    #  functionality.
-
-    if len(sys.argv) > 1:
-        files = list(sys.argv)
-        files.pop(0)
-        path_to_files = None
-
-    else:
-        if config["files_folder"] == "files_to_process":
-            path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), config["files_folder"])
-        else:
-            path_to_files = config["files_folder"]
-
-        #  Get filenames, but ignore subfolders.
-        files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
-
-        x = 0
-        while x < len(files):
-            if files[x] == "PLACE_FILES_TO_SCAN_HERE.txt":
-                files.pop(x)
-            x += 1
-
-    #  If no files are found, log, notify the user, and exit.
-    if len(files) == 0:
-        print("No files found to process.  Exiting...")
-        logging.info("No files found to process.")
-        print()
-        input("Please press ENTER to close.")
-        exit(1)
-
-    logging.info(" *** Configuration read.  Files to process identified. Starting Script. ***")
-    print("*** Configuration read.  Files to process identified. Starting Script. ***")
-
-    if "client_id" in config:
-        client_id = config["client_id"]
+    #  Validate client_id or get from API
+    if client_id is not None:
         valid = validate_client_id(client_id, rs_platform, api_key)
-
         if not valid:
-            print(f"Unable to validate client ID provided in config file: {client_id}")
-            print(f"Please provide a valid client ID in your config file, or re-comment out "
-                  f"the setting in the config file. Exiting...")
+            message = "Unable to validate client ID provided: " + str(client_id)
+            print(message)
+            logging.error(message)
+            print(f"Please provide a valid client ID. Exiting...")
             exit(1)
-
     else:
         client_id = get_client_id(rs_platform, api_key)
-        
         if client_id == 0:
             print()
             print("Exiting.")
             exit(1)
+
+    if file_path == "files_to_process":
+        path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), file_path)
+    else:
+        path_to_files = file_path
+
+    #  Get filenames, but ignore subfolders.
+    files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
+
+    x = 0
+    while x < len(files):
+        if files[x] == "PLACE_FILES_TO_SCAN_HERE.txt":
+            files.pop(x)
+        x += 1
+
+    #  If no files are found, log, notify the user, and exit.
+    if len(files) == 0:
+        message = "No files found to process.  Exiting..."
+        print(message)
+        logging.info(message)
+        print()
+        input("Please press ENTER to close.")
+        exit(1)
 
     process_state = ""
 
@@ -684,14 +712,12 @@ def main():
     assessment_start_date = str(today)
     assessment_notes = "Assessment generated via upload_to_platform.py."
 
+    if network_id is None:
+        network_id = find_network_id(rs_platform, api_key, client_id)
+
     print()
     print("This tool will now create a new assessment and upload files for scanning.")
     print()
-
-    if "network_id" in config:
-        network_id = config["network_id"]
-    else:
-        network_id = find_network_id(rs_platform, api_key, client_id)
 
     assessment_id = create_new_assessment(rs_platform, api_key, client_id,
                                           assessment_name, assessment_start_date, assessment_notes)
@@ -715,40 +741,15 @@ def main():
 
     print("Uploading Files...")
 
-    if len(sys.argv) == 1:
+    with progressbar.ProgressBar(max_value=len(files)) as bar:
+        bar_counter = 1
 
-        with progressbar.ProgressBar(max_value=len(files)) as bar:
-
-            bar_counter = 1
-
-            for file in files:
-                add_file_to_upload(rs_platform, api_key, client_id, upload_id, file, path_to_files)
-                shutil.move(path_to_files + "/" + file, path_to_files + "/archive/" + file)
-                bar.update(bar_counter)
-                time.sleep(0.1)
-                bar_counter += 1
-
-    else:
-
-        with progressbar.ProgressBar(max_value=len(files)) as bar:
-            x = 0
-            while x < len(files):
-                files[x] = {
-                    "file_path": os.path.dirname(files[x]),
-                    "file_name": os.path.basename(files[x])
-                    }
-
-                if files[x]['file_name'] not in ["config.toml", 'PLACE_FILES_TO_SCAN_HERE.txt']:
-
-                    add_file_to_upload(rs_platform, api_key, client_id,
-                                       upload_id, files[x]['file_name'], files[x]['file_path'])
-
-                    bar.update(x)
-
-                    shutil.move(files[x]['file_path'] + "/" + files[x]['file_name'],
-                                files[x]['file_path'] + "/archive/" + files[x]['file_name'])
-
-                x += 1
+        for file in files:
+            add_file_to_upload(rs_platform, api_key, client_id, upload_id, file, path_to_files)
+            shutil.move(path_to_files + "/" + file, path_to_files + "/archive/" + file)
+            bar.update(bar_counter)
+            time.sleep(0.1)
+            bar_counter += 1
 
     print()
     print("Beginning processing of uploaded files.")
