@@ -1,14 +1,12 @@
-"""
-*********************************************************************
-
-Name        : api_request_handler.py
-Module      : api_request_handler
-Description : RiskSense API Request Handler
-Copyright   : (c) RiskSense, Inc.
-License     : Apache-2.0
-
-*********************************************************************
-"""
+""" *******************************************************************************************************************
+|
+|  Name        :  api_request_handler.py
+|  Module      :  api_request_handler
+|  Description :  RiskSense API Request Handler
+|  Copyright   :  (c) RiskSense, Inc.
+|  License     :  Apache-2.0 (http://www.apache.org/licenses/LICENSE-2.0)
+|
+******************************************************************************************************************* """
 
 import json
 import requests
@@ -18,33 +16,33 @@ from urllib3 import Retry
 
 class ApiRequestHandler:
 
+    """ API Request Handler """
+
     def __init__(self, api_key, user_agent=None, max_retries=5):
 
         """
         Initialize ApiRequestHandler class.
 
-        :param api_key:             RiskSense Platform API key
-        :type  api_key:             str
+        :param api_key:         RiskSense Platform API key
+        :type  api_key:         str
 
-        :param user_agent:          User-Agent
-        :type  user_agent:          str
+        :param user_agent:      User-Agent
+        :type  user_agent:      str
 
-        :param max_retries:         maximum number of retries for a request
-        :type  max_retries:         int
+        :param max_retries:     maximum number of retries for a request
+        :type  max_retries:     int
         """
 
         self.api_key = api_key
         self.user_agent = user_agent
         self.max_retries = max_retries
 
-        self.__retry_counter = 0
-
     def make_request(self, http_method, url, body=None, files=None):
 
         """
 
-        :param http_method:      HTTP method to use for request (GET or POST)
-        :type  http_method:      str
+        :param http_method:     HTTP method to use for request (GET or POST)
+        :type  http_method:     str
 
         :param url:             URL for API endpoint
         :type  url:             str
@@ -101,9 +99,8 @@ class ApiRequestHandler:
 
         #  If request is not a GET or a POST, exit and ask for a supported http method
         else:
-            print(f"Unsupported HTTP method provided: {http_method}")
-            print("Please provide a supported HTTP method (GET or POST)")
-            exit(1)
+            print(f"ERROR: Unsupported HTTP method provided ({http_method}).")
+            raise ValueError
 
         return response
 
@@ -142,3 +139,20 @@ class ApiRequestHandler:
 
         else:
             return False
+
+
+"""
+   Copyright 2019 RiskSense, Inc.
+   
+   Licensed under the Apache License, Version 2.0 (the "License");
+   you may not use this file except in compliance with the License.
+   You may obtain a copy of the License at:
+   
+   http://www.apache.org/licenses/LICENSE-2.0
+   
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS,
+   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+   See the License for the specific language governing permissions and
+   limitations under the License.
+"""
