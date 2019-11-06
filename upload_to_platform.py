@@ -531,8 +531,6 @@ def check_upload_state(platform, key, client, upload):
 
     url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload)
 
-    raw_check_upload_state_response = None
-
     try:
         raw_check_upload_state_response = request_handler.make_request("GET", url)
 
