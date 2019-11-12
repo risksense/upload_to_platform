@@ -20,7 +20,8 @@ When run, the script will take all files from a designated folder, upload them t
 platform, and begin processing of those files.  Once the files have been successfully uploaded, 
 the files will be moved into an "archive" subfolder within the original folder.
 
-##Usage
+
+## Usage
 
 ##### Editing the configuration file (conf/config.toml):
  - Update the platform field as necessary.  
