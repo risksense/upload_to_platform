@@ -5,6 +5,7 @@
 |  Description :  Uploads files to the RiskSense platform, and kicks off the processing of those files.
 |  Copyright   :  (c) RiskSense, Inc.
 |  License     :  Apache-2.0 (https://www.apache.org/licenses/LICENSE-2.0.txt)
+
 |
 ******************************************************************************************************************* """
 
@@ -17,12 +18,14 @@ import os
 import logging
 import argparse
 
-from api_request_handler import ApiRequestHandler
-
 import toml
 import progressbar
 
+
 __version__ = "0.7.0"
+
+from api_request_handler import ApiRequestHandler
+
 
 USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
@@ -30,8 +33,7 @@ USER_AGENT_STRING = "upload_to_platform_v" + __version__
 def get_client_id(platform, key):
 
     """
-    Get the client ID associated with the specified API key.  Does
-    not currently support multiplatform users.
+    Get the client ID associated with the specified API key.  Does not currently support multi-platform users.
 
     :param platform:    URL of platform
     :type  platform:    str
@@ -47,6 +49,7 @@ def get_client_id(platform, key):
     print()
 
     request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+
 
     url = platform + "/api/v1/client?size=300"
 
@@ -110,8 +113,7 @@ def get_client_id(platform, key):
 def validate_client_id(client, platform, key):
 
     """
-    Validates that a client ID is associated with the specified
-    API key.
+    Validates that a client ID is associated with the specified API key.
 
     :param client:      Client ID to verify
     :type  client:      int
@@ -158,8 +160,7 @@ def validate_client_id(client, platform, key):
 def find_network_id(platform, key, client):
 
     """
-    Find the network IDs associated with a client, and have the user
-    select which should be used for the upload.
+    Find the network IDs associated with a client, and have the user select which should be used for the upload.
 
     :param platform:    URL of platform
     :type  platform:    str
@@ -638,6 +639,7 @@ def main():
     conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
     config = read_config_file(conf_file)
 
+
     if 'client_id' in config:
         client_id = config['client_id']
     else:
@@ -647,6 +649,7 @@ def main():
         network_id = config['network_id']
     else:
         network_id = None
+
 
     #  Arg Parsing.  Use values from config file as defaults.
     parser = argparse.ArgumentParser(description='The following arguments can be used to override those in the config file:',
@@ -663,7 +666,38 @@ def main():
 
     rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id = process_args(args)
 
+
     log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), log_folder, 'uploads.log')
+
+        # Make sure that the path to the directory actually exists
+        if not os.path.isdir(path_to_files):
+            logging.error("The path provided as the location of the upload files is not a directory.")
+            logging.error("Path provided: %s", path_to_files)
+            print()
+            print(" **** ERROR ****")
+            print(f"The path provided as the location of the upload files is not a directory.")
+            print(f"Path provided: '{path_to_files}'")
+            print()
+            print("Please update your config.")
+            print()
+            input("Please press ENTER to close.")
+            exit(1)
+
+        # Check and make sure that archive folder exists.
+        archive_folder_path = os.path.join(path_to_files, "archive")
+        if not os.path.isdir(archive_folder_path):
+            logging.error("There is not an \"archive\" subfolder within the folder that contains the upload files.")
+            print()
+            print(" **** ERROR ****")
+            print(f"There is not an \"archive\" subfolder within the folder that contains the upload files.")
+            print("Please create a subfolder called \"archive\" within the folder that contains the upload files.")
+            print()
+            input("Please press ENTER to close.")
+            exit(1)
+
+        #  Get filenames, but ignore subfolders.
+        files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
+
 
     #  Specify Settings For the Log
     logging.basicConfig(filename=log_file, level=logging.DEBUG,
@@ -684,10 +718,16 @@ def main():
         print("Validating the provided client ID...")
         valid = validate_client_id(client_id, rs_platform, api_key)
         if not valid:
+
             message = "Unable to validate client ID provided: " + str(client_id)
             print(message)
             logging.error(message)
             print(f"Please provide a valid client ID. Exiting...")
+
+            print(f"Unable to validate client ID provided in config file: {client_id}")
+            print(f"Please provide a valid client ID in your config file, or re-comment out "
+                  f"the \"client_id\"setting in the config file. Exiting...")
+
             exit(1)
         else:
             print(" - Client ID validated.")
@@ -803,6 +843,7 @@ def main():
 
 #  Execute Script
 if __name__ == "__main__":
+
     try:
         main()
     except KeyboardInterrupt:
@@ -810,6 +851,7 @@ if __name__ == "__main__":
         print("KeyboardInterrupt detected.  Exiting...")
         print()
         sys.exit(0)
+
 
 
 """
