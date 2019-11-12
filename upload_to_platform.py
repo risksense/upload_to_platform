@@ -3,6 +3,7 @@
 |  Name        :  upload_to_platform.py
 |  Project     :  Upload to Platform
 |  Description :  Uploads files to the RiskSense platform, and kicks off the processing of those files.
+|  Version     :  0.7.0
 |  Copyright   :  (c) RiskSense, Inc.
 |  License     :  Apache-2.0 (https://www.apache.org/licenses/LICENSE-2.0.txt)
 |
