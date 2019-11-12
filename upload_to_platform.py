@@ -566,6 +566,38 @@ def check_upload_state(platform, key, client, upload):
     return state
 
 
+def process_args(arguments):
+
+    """
+    Process the arguments that were passed to the script into configuration variables.
+
+    :param arguments:   Arguments received
+
+    :return:    Configuration variable values
+    """
+    rs_platform = arguments.platform
+    api_key = arguments.api_key
+    file_path = arguments.files_folder
+    log_folder = arguments.log_folder
+    client_id = arguments.client_id
+    network_id = arguments.network_id
+
+    if arguments.auto_urba == "true":
+        auto_urba = True
+    elif arguments.auto_urba == "false":
+        auto_urba = False
+    else:
+        auto_urba = arguments.auto_urba
+
+    if client_id is not None:
+        client_id = int(client_id)
+
+    if network_id is not None:
+        network_id = int(network_id)
+
+    return rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id
+
+
 def read_config_file(filename):
 
     """
@@ -600,7 +632,7 @@ def main():
 
     """ Main body of script """
 
-    print(f"\n\n        *** RiskSense -- {USER_AGENT_STRING} ***")
+    print(f"\n\n         *** RiskSense -- {USER_AGENT_STRING} ***")
     print('Upload scan files to the RiskSense platform via the RiskSense API. \n\n')
 
     conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
@@ -623,30 +655,13 @@ def main():
     parser.add_argument('-a', '--api_key', help='API Key', type=str, required=False, default=config['api-key'])
     parser.add_argument('-f', '--files_folder', help='Path to folder containing scan files', type=str, required=False, default=config['files_folder'])
     parser.add_argument('-l', '--log_folder', help='Path to folder to write log', type=str, required=False, default=config['log_folder'])
-    parser.add_argument('-u', '--auto_urba', help='Run auto-URBA?', type=bool, choices=[True, False], required=False, default=config['auto_urba'])
+    parser.add_argument('-u', '--auto_urba', help='Run auto-URBA?', type=str, choices=["true", "false"], required=False, default=config['auto_urba'])
     parser.add_argument('-c', '--client_id', help='Client ID', type=int, required=False, default=client_id)
     parser.add_argument('-n', '--network_id', help='Network ID', type=int, required=False, default=network_id)
 
     args = parser.parse_args()
 
-    rs_platform = args.platform
-    api_key = args.api_key
-    file_path = args.files_folder
-    log_folder = args.log_folder
-    auto_urba = args.auto_urba
-    client_id = args.client_id
-    network_id = args.network_id
-
-    if args.auto_urba == 'true' or args.auto_urba == 'True':
-        auto_urba = True
-    elif args.auto_urba == 'false' or args.auto_urba == 'False':
-        auto_urba = False
-
-    if client_id is not None:
-        client_id = int(client_id)
-
-    if network_id is not None:
-        network_id = int(network_id)
+    rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id = process_args(args)
 
     log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), log_folder, 'uploads.log')
 
@@ -655,7 +670,10 @@ def main():
                         format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
 
     if api_key == "":
-        message = "No API Key configured.  Please add your API Key to the configuration file (conf/config.toml)."
+        message = "No API Key configured.  \n " \
+                  "Please supply an API Key by one of the following methods: \n" \
+                  " - Add to the configuration file (conf/config.toml) \n" \
+                  " - Provide as an argument when executing script."
         print(message)
         logging.info(message)
         input("Please press ENTER to close.")
@@ -663,6 +681,7 @@ def main():
 
     #  Validate client_id or get from API
     if client_id is not None:
+        print("Validating the provided client ID...")
         valid = validate_client_id(client_id, rs_platform, api_key)
         if not valid:
             message = "Unable to validate client ID provided: " + str(client_id)
@@ -670,6 +689,8 @@ def main():
             logging.error(message)
             print(f"Please provide a valid client ID. Exiting...")
             exit(1)
+        else:
+            print(" - Client ID validated.")
     else:
         client_id = get_client_id(rs_platform, api_key)
         if client_id == 0:
@@ -694,6 +715,7 @@ def main():
     #  If no files are found, log, notify the user, and exit.
     if len(files) == 0:
         message = "No files found to process.  Exiting..."
+        print()
         print(message)
         logging.info(message)
         print()
@@ -729,6 +751,7 @@ def main():
     logging.info(" ------- Session Info ---------")
     logging.info(" Client ID: %s ", client_id)
     logging.info(" Network ID: %s ", network_id)
+    logging.info(" Auto URBA: %s ", auto_urba)
     logging.info(" Assessment Name: %s", assessment_name)
     logging.info(" Assessment ID: %s", assessment_id)
     logging.info(" Assessment Start Date: %s", assessment_start_date)

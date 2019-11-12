@@ -1,6 +1,6 @@
 # Risksense - Upload to Platform
 
-[Download version 0.5.0](https://github.com/risksense/upload_to_platform/releases/download/0.5.0/upload_to_platform_v0.5.0.zip)
+[Download version 0.7.0](https://github.com/risksense/upload_to_platform/releases/download/0.7.0/upload_to_platform_v0.7.0.zip)
 
 ## Requirements
 
@@ -14,23 +14,26 @@
    `pip install -r requirements.txt`
 
 ## Overview
-This Python script enables the upload of scan files to the Risksense platform via the REST API.
+This Python script enables the upload of scan files to the RiskSense platform via the RiskSense API.
 
-When run, the script will take all files from a designated folder, upload them to the Risksense platform, and begin processing of those files.  Once the files have been successfully uploaded, the files will be moved into an "archive" subfolder within the original folder.
-
-
+When run, the script will take all files from a designated folder, upload them to the RiskSense 
+platform, and begin processing of those files.  Once the files have been successfully uploaded, 
+the files will be moved into an "archive" subfolder within the original folder.
 
 ##Usage
 
-##### Editing the configuration file:
+##### Editing the configuration file (conf/config.toml):
  - Update the platform field as necessary.  
  - Add your API token.  
- - If it is known, you can provide the ID of the desired network (not the network name), and the user will not be prompted to provide or find it.
- - Additionally, if the desired Client ID is known, you can provide it in the config file, and the script will not ask the user about it.
+ - If it is known, you can provide the ID of the desired network (not the network name), and the user 
+   will not be prompted to provide or find it.
+ - Additionally, if the desired Client ID is known, you can provide it in the config file, and the 
+   script will not ask the user about it.
  - If desired, change the paths of the folders containing the files to process and log file.
-   - If you specify a custom path_to_files, be sure to create a subfolder named "archive" within the folder specified.
+   - If you specify a custom path_to_files, ___be sure to create a subfolder named "archive" 
+     within the folder specified___.
 
-```
+```toml
 platform = 'https://platform.risksense.com'
 
 # The API Token can be generated in the RiskSense UI, under User Settings.
@@ -63,7 +66,8 @@ python upload_to_platform.py
 ```
 
 ##### Advanced Usage
-Any of the settings found in the configuration file can be overridden through the use of arguments at the time of execution.
+Any of the settings found in the configuration file can be overridden through the use of arguments 
+at the time of execution.
 ```commandline
 python upload_to_platform.py -h
        
