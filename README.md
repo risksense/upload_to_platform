@@ -1,6 +1,6 @@
 # Risksense - Upload to Platform
 
-[Download version 1.0](https://github.com/risksense/upload_to_platform/releases/download/adfadfads)
+[Download version 1.0](https://github.com/risksense/upload_to_platform/releases/download/1.0/upload_to_platform_v1.0.zip)
 
 ## Requirements
 
