@@ -1,6 +1,6 @@
 # Risksense - Upload to Platform
 
-[Download version 0.7.0](https://github.com/risksense/upload_to_platform/releases/download/v0.7.0/upload_to_platform_v0.7.0.zip)
+[Download version 1.0](https://github.com/risksense/upload_to_platform/releases/download/adfadfads)
 
 ## Requirements
 
@@ -8,6 +8,7 @@
     - This script has been tested using Python 3.7
  - Python Modules (recommend to install using pip):
     - toml
+    - urllib3
     - requests
     - progressbar2
    
@@ -73,9 +74,9 @@ at the time of execution.
 python upload_to_platform.py -h
        
        
-       *** RiskSense -- upload_to_platform_v0.7.0 ***
+         *** RiskSense -- upload_to_platform_v1.0 ***
 Upload scan files to the RiskSense platform via the RiskSense API.
-
+------------------------------------------------------------------
 
 usage: upload_to_platform.py [-h] [-p PLATFORM] [-a API_KEY] [-f FILES_FOLDER]
                             [-l LOG_FOLDER] [-u {True,False}] [-c CLIENT_ID]
