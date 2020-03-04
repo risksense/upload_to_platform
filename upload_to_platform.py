@@ -1,15 +1,14 @@
 """ *******************************************************************************************************************
 |
-|  Name        :  upload_to_platform.py
-|  Project     :  Upload to Platform
-|  Description :  Uploads files to the RiskSense platform, and kicks off the processing of those files.
-|  Version     :  0.7.0
-|  Copyright   :  (c) RiskSense, Inc.
-|  License     :  Apache-2.0 (https://www.apache.org/licenses/LICENSE-2.0.txt)
+|  Name         :  upload_to_platform.py
+|  Project      :  Upload to Platform
+|  Description  :  Uploads files to the RiskSense platform, and kicks off the processing of those files.
+|  Version      :  1.0
+|  Copyright    :  (c) RiskSense, Inc.
+|  License      :  Apache-2.0 (https://www.apache.org/licenses/LICENSE-2.0.txt)
 |
 ******************************************************************************************************************* """
 
-import json
 import time
 import shutil
 import datetime
@@ -17,660 +16,641 @@ import sys
 import os
 import logging
 import argparse
-
-from api_request_handler import ApiRequestHandler
-
 import toml
+from toml import TomlDecodeError
 import progressbar
+from packages import risksense_api as rsapi
 
-__version__ = "0.7.0"
-
+__version__ = "1.0"
 USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
 
-def get_client_id(platform, key):
+class UploadToPlatform:
 
-    """
-    Get the client ID associated with the specified API key.  Does
-    not currently support multiplatform users.
+    """ UploadToPlatform class """
 
-    :param platform:    URL of platform
-    :type  platform:    str
+    def __init__(self):
 
-    :param key:         API key
-    :type  key:         str
+        """ Initialize UploadToPlatform class, and upload scan files """
 
-    :return:    The client ID to be used while uploading the files.
-    :rtype:     int
-    """
+        today = datetime.date.today()
+        current_time = time.time()
 
-    print(f"Determining available Client IDs...")
-    print()
+        print(f"\n\n         *** RiskSense -- {USER_AGENT_STRING} ***")
+        print('Upload scan files to the RiskSense platform via the RiskSense API.')
+        print("------------------------------------------------------------------\n")
 
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+        #  Read the config
+        conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
+        config = self.read_config_file(conf_file)
 
-    url = platform + "/api/v1/client?size=300"
+        #  Process any args passed by the user, and set variables appropriately.
+        args = self.arg_parser_setup(config)
+        rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id = self.process_args(args)
 
-    raw_client_id_response = None
+        #  Specify Settings For the Log
+        log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), log_folder, 'uploads.log')
+        logging.basicConfig(filename=log_file, level=logging.DEBUG,
+                            format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        logging.info("Date: %s", today)
+        logging.info("Time: %s", current_time)
 
-    try:
-        raw_client_id_response = request_handler.make_request("GET", url)
+        #  Create RiskSenseApi instance for communicating with the platform
+        self.rs = rsapi.RiskSenseApi(rs_platform, api_key)
 
-    except Exception as ex:
-        message = "ERROR.  There was a problem trying to get a list of available client IDs.  Exiting."
-        print(message)
-        print(ex)
-
-        logging.critical(message)
-        logging.critical(ex)
-        exit(1)
-
-    if request_handler.valid_response(raw_client_id_response, 200):
-
-        json_client_id_response = json.loads(raw_client_id_response.text)
-
-        if json_client_id_response['page']['totalElements'] == 1:
-            found_id = json_client_id_response['_embedded']['clients'][0]['id']
-
+        #  Validate client_id provided in args/config or get the user to choose one
+        if client_id is not None:
+            print("Validating the provided client ID...")
+            self.validate_client_id(client_id)
         else:
-            all_found_ids = json_client_id_response['_embedded']['clients']
-            print()
-            print("These are the available Client IDs associated with your account. ")
-            print("You will need to select which of your clients to associate this upload with.")
-            print()
-
-            #  Sort list all_found_ids by client name.
-            all_found_ids = sorted(all_found_ids, key=lambda k: k['name'])
-
-            x = 0
-            while x < len(all_found_ids):
-                print(f"{x} - {all_found_ids[x]['name']}")
-                x += 1
-
-            selected_id = input("Enter the number above that is associated with the client that you would like to select: ")
-
-            if selected_id.isdigit() and int(selected_id) >= 0 and int(selected_id) < len(all_found_ids):
-                found_id = all_found_ids[int(selected_id)]['id']
+            client_id = self.get_client_id()
+            if client_id == 0:
                 print()
+                print("Exiting.")
+                exit(1)
+
+        #  Set the default client ID in the RiskSenseApi object
+        self.rs.set_default_client_id(client_id)
+
+        #  Get the user to choose a Network ID if none was provided in args/config
+        if network_id is None:
+            network_id = self.find_network_id()
+        #  If a network ID was provided in args/config, validate it.
+        else:
+            self.validate_network_id(network_id)
+
+        # Get info about files available to be uploaded.
+        files, path_to_files = self.process_files(file_path)
+
+        #  Start defining parameters for new assessment
+        assessment_name = "assmnt_" + str(today) + "_" + str(current_time)
+        assessment_start_date = str(today)
+        assessment_notes = "Assessment generated via upload_to_platform.py."
+        print()
+        print(f"Creating a new assessment ({assessment_name})...")
+
+        #  Actual creation of a new Assessment
+        assessment_id = self.create_new_assessment(assessment_name, assessment_start_date, assessment_notes)
+
+        #  Start defining parameters for new upload
+        upload_name = "upload_" + str(today) + "_" + str(current_time)
+        print(f"Creating a new upload ({upload_name})...")
+        print()
+
+        #  Actual creation of a new Upload
+        upload_id = self.create_new_upload(upload_name, assessment_id, network_id)
+
+        #  Log session info in log file
+        self.log_session_info(network_id, auto_urba, assessment_name, assessment_id, assessment_start_date,
+                              assessment_notes, upload_id, path_to_files, files)
+
+        #  Start uploading files
+        print("Uploading File(s)...")
+        num_upload_errors = self.upload_files(upload_id, files, path_to_files)
+
+        #  If the number of upload errors is less than the number of files, start processing them.
+        if num_upload_errors < len(files):
+            self.begin_upload_processing(upload_id, auto_urba)
+        else:
+            print(f"There were no files that were successfully uploaded.  Exiting.")
+            print()
+            input("Hit ENTER to close.")
+            exit(1)
+
+        #  Begin monitoring processing of the uploaded files until complete
+        print("Now monitoring the processing state of your uploaded files...")
+        time.sleep(15)
+        process_state = ""
+
+        while process_state != "COMPLETE":
+            process_state = self.check_processing_state(upload_id)
+            if process_state == "ERROR":
+                break
+            if process_state == "COMPLETE":
+                break
             else:
-                print("You have made an invalid selection.")
-                found_id = 0
+                print(f"Process state is currently: {process_state}.")
+                time.sleep(15)
 
-    else:
         print()
-        print("Unable to retrieve Client IDs.  Exiting.")
-        print(f"Status Returned: {raw_client_id_response.status_code}")
-        print(raw_client_id_response.text)
-        found_id = 0
+        processing_finished_msg = "Processing of uploaded file(s) has ended. State: {}".format(process_state)
+        if auto_urba:
+            processing_finished_msg += "\nRiskSense will now begin the Update Remediation By Assessment (URBA) process."
+        print(processing_finished_msg)
+        logging.info("Processing of uploaded files has ended.  State: %s", process_state)
         print()
-        exit(1)
+        input("Hit ENTER to close.")
 
-    return found_id
+    def validate_client_id(self, client):
 
+        """
+        Validates that a client ID is associated with the specified API key.
 
-def validate_client_id(client, platform, key):
+        :param client:      Client ID to verify
+        :type  client:      int
+        """
 
-    """
-    Validates that a client ID is associated with the specified
-    API key.
+        valid_flag = False
 
-    :param client:      Client ID to verify
-    :type  client:      int
+        for item in self.rs.my_clients:
+            if client == item['id']:
+                valid_flag = True
 
-    :param platform:    URL of platform
-    :type  platform:    str
+        if valid_flag:
+            print(" - Client ID validated.")
+            print()
+        else:
+            message = "Unable to validate client ID provided: " + str(client)
+            print(message)
+            logging.error(message)
+            print(f"Please provide a valid client ID. Exiting...")
+            exit(1)
 
-    :param key:         API key
-    :type  key:         str
+    def validate_network_id(self, network_id):
 
-    :return:    Indication as to whether or not the client ID is valid.
-    :rtype:     bool
-    """
+        """
+        Validate the network ID provided by the user in the args/config
 
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
+        :param network_id:  Network ID to validate
+        :type  network_id:  int
+        """
 
-    validity = False
+        found_networks = None
 
-    url = platform + "/api/v1/client/" + str(client)
+        network_search_filter = [
+            {
+                "field": "id",
+                "exclusive": False,
+                "operator": "EXACT",
+                "value": network_id
+            }
+        ]
 
-    raw_client_id_response = None
+        print(f"Validating the provided network ID...")
 
-    try:
-        raw_client_id_response = request_handler.make_request("GET", url)
+        try:
+            found_networks = self.rs.networks.search(network_search_filter)
+        except (rsapi.RequestFailed, rsapi.StatusCodeError) as ex:
+            print(f"The search for available networks has failed:")
+            print(ex)
+            logging.critical("ERROR. The search for available networks has failed:")
+            logging.critical(ex)
+            exit(1)
+        except rsapi.MaxRetryError as ex:
+            print(f"The search for available networks has reached the maximum number of retries, and failed:")
+            print(ex)
+            logging.critical("ERROR. The search for available networks has reached "
+                             "the maximum number of retries, and failed:")
+            logging.critical(ex)
+            exit(1)
+        except Exception as ex:
+            print("ERROR. There was an unexpected problem getting a list of available networks from the platform.")
+            print(ex)
+            logging.critical("ERROR. There was an unexpected problem getting a list "
+                             "of available networks from the platform.")
+            logging.critical("Exception: \n %s", ex)
+            exit(1)
 
-    except Exception as ex:
-        print("ERROR. There was a problem validating the client ID.")
-        print(ex)
+        if len(found_networks) != 1:
+            print()
+            print("The provided network ID appears to be invalid.  Exiting.")
+            input("Press ENTER to close.")
+            print()
+            exit(1)
 
-        logging.critical("ERROR. There was a problem validating the client ID. (Client ID: %s)", client)
-        logging.critical("Exception: \n %s", ex)
+        print(" - Network ID validated.")
 
-        exit(1)
+    def find_network_id(self):
 
-    if request_handler.valid_response(raw_client_id_response, 200):
-        json_client_id_response = json.loads(raw_client_id_response.text)
+        """
+        Find the network IDs associated with a client, and have the user
+        select which should be used for the upload.
 
-        if json_client_id_response['id'] == client:
-            validity = True
+        :return:    The Network ID to associate upload with.
+        :rtype:     int
+        """
 
-    return validity
+        network = 0
+        found_networks = None
 
+        logging.info("Getting Network ID")
 
-def find_network_id(platform, key, client):
+        num_networks = self.find_network_count()
+        if num_networks == 1:
+            network_search_filter = []
+        else:
+            print("An upload must be associated with a network.")
+            print("We will search your networks to help you identify which you would like to use.")
+            print()
+            search_value = input("Input a search string to search for your desired network name (or hit 'ENTER' to list all available networks): ")
+            logging.info("Customer search string: %s", search_value)
 
-    """
-    Find the network IDs associated with a client, and have the user
-    select which should be used for the upload.
+            logging.info("Querying networks based on your search string")
 
-    :param platform:    URL of platform
-    :type  platform:    str
-
-    :param key:         API key
-    :type  key:         str
-
-    :param client:      Client ID
-    :type  client:      int
-
-    :return:    The selected Network ID
-    :rtype:     int
-    """
-
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
-
-    network = 0
-
-    logging.info("Getting Network ID")
-
-    print()
-    print("An upload must be associated with a network.")
-    network_id_known = input("Do you happen to know the network ID for your upload? (y/n) ")
-    print()
-    logging.info("Does customer know network ID? %s", network_id_known)
-
-    if network_id_known.lower() == 'y':
-        network = input("Input network ID: ")
-        return network
-
-    else:
-        print(f"We will search your networks to help you identify which to use.")
-        print()
-        search_value = input("Input search string for Network name search (or hit 'ENTER' to list all): ")
-        logging.info("Customer search string: %s", search_value)
-
-        logging.info("Querying network IDs based on search string")
-
-        url = platform + "/api/v1/client/" + str(client) + "/network/search"
-
-        body = {
-            "filters": [
+            network_search_filter = [
                 {
                     "field": "name",
                     "exclusive": False,
                     "operator": "LIKE",
                     "value": search_value
                 }
-            ],
-            "projection": "basic",
-            "sort": [
-                {
-                    "field": "id",
-                    "direction": "ASC"
-                }
-            ],
-            "page": 0,
-            "size": 20
-        }
-
-        raw_network_search_response = None
+            ]
 
         try:
-            raw_network_search_response = request_handler.make_request("POST", url, body=body)
-
-        except Exception as ex:
-            print("ERROR. There was a problem getting a list of available networks from the platform.")
+            found_networks = self.rs.networks.search(network_search_filter)
+        except (rsapi.RequestFailed, rsapi.StatusCodeError) as ex:
+            print(f"The search for available networks has failed:")
             print(ex)
-
-            logging.critical("ERROR. There was a problem getting a list of available networks from the platform.")
+            logging.critical("ERROR. The search for available networks has failed:")
+            logging.critical(ex)
+            exit(1)
+        except rsapi.MaxRetryError as ex:
+            print(f"The search for available networks has reached the maximum number of retries, and failed:")
+            print(ex)
+            logging.critical("ERROR. The search for available networks has reached "
+                             "the maximum number of retries, and failed:")
+            logging.critical(ex)
+            exit(1)
+        except Exception as ex:
+            print("ERROR. There was an unexpected problem getting a list of available networks from the platform.")
+            print(ex)
+            logging.critical("ERROR. There was an unexpected problem getting a list "
+                             "of available networks from the platform.")
             logging.critical("Exception: \n %s", ex)
-
             exit(1)
 
-        if request_handler.valid_response(raw_network_search_response, 200):
-            json_network_search_response = json.loads(raw_network_search_response.text)
+        if network_search_filter == [] and len(found_networks == 1):
+            return found_networks[0]['id']
 
-            if json_network_search_response['page']['totalElements'] != 0:
-                z = 0
-                network_list = []
-                while z < len(json_network_search_response['_embedded']['networks']):
-                    if json_network_search_response['_embedded']['networks'][z]['clientId'] == client:
-                        network_list.append([json_network_search_response['_embedded']['networks'][z]['id'],
-                                             json_network_search_response['_embedded']['networks'][z]['name']])
-                    z += 1
+        if len(found_networks) == 0:
+            print()
+            print("No such network found.  Exiting.")
+            input("Press ENTER to close.")
+            print()
+            exit(1)
+        elif len(found_networks) >= 1:
+            network_list = []
+            for z in range(0, len(found_networks)):
+                if found_networks[z]['clientId'] == self.rs.get_default_client_id():
+                    network_list.append([found_networks[z]['id'], found_networks[z]['name']])
 
-                y = 0
-                while y < len(network_list):
-                    print(f"{y} - {network_list[y][1]}")
-                    y += 1
+            for y in range(0, len(network_list)):
+                print(f"{y} - {network_list[y][1]}")
 
-                list_id = input("Please enter the number that corresponds with your network: ")
-                network = network_list[int(list_id)][0]
+            list_id = input("Enter the number above that is associated with the network that you would like to select: ")
+            network = network_list[int(list_id)][0]
 
-            else:
-                print()
-                print("No such network found.")
-                input("Press ENTER to close.")
-                print()
-                exit(1)
+        return network
 
+    def process_args(self, arguments):
+
+        """
+        Process the arguments that were passed to the script into configuration variables.
+
+        :param arguments:   Arguments received
+
+        :return:    Configuration variable values
+        """
+        rs_platform = arguments.platform
+        api_key = arguments.api_key
+        file_path = arguments.files_folder
+        log_folder = arguments.log_folder
+        client_id = arguments.client_id
+        network_id = arguments.network_id
+
+        if api_key == "":
+            self.no_api_key()
+
+        if arguments.auto_urba == "true":
+            auto_urba = True
+        elif arguments.auto_urba == "false":
+            auto_urba = False
         else:
-            print(f"An error occurred during the search for your network.  Status code "
-                  f"returned was {raw_network_search_response.status_code}")
-            return
+            auto_urba = arguments.auto_urba
 
-    return network
+        if client_id is not None:
+            client_id = int(client_id)
 
+        if network_id is not None:
+            network_id = int(network_id)
 
-def create_new_assessment(platform, key, client, name, start_date, notes):
+        return rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id
 
-    """
-    Creates a new assessment for the uploaded file(s) to be associated with.
+    def get_client_id(self):
 
-    :param platform:    URL of platform
-    :type  platform:    str
+        """
+        Get the client IDs associated with the specified API key, and have the user select one.
 
-    :param key:         API key
-    :type  key:         str
+        :return:    The client ID to be used while uploading the files.
+        :rtype:     int
+        """
 
-    :param client:      Client ID
-    :type  client:      int
-
-    :param name:        The name your assessment should be known by.
-    :type  name:        str
-
-    :param start_date:  The start date for the assessment
-    :type  start_date:  str
-
-    :param notes:       Notes to be associated with the assessment.
-    :type  notes:       str
-
-    :return:    The ID that the platform has associated with the created assessment.
-    :rtype:     int
-    """
-
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
-
-    created_id = 0
-
-    logging.info("Creating new assessment.")
-    logging.debug("New assessment name: %s", name)
-    logging.debug("New assessment start date: %s", start_date)
-    logging.debug("New assessment notes: %s", notes)
-
-    url = platform + "/api/v1/client/" + str(client) + "/assessment"
-
-    body = {
-        "name": name,
-        "startDate": start_date,
-        "notes": notes
-    }
-
-    raw_assessment_response = None
-
-    try:
-        raw_assessment_response = request_handler.make_request("POST", url, body=body)
-
-    except Exception as ex:
-        print("ERROR. Unable to create a new assessment.")
-        print(ex)
-
-        logging.critical("ERROR. There was a problem creating a new assessment.")
-        logging.critical("Exception: \n %s", ex)
-
-        exit(1)
-
-    if request_handler.valid_response(raw_assessment_response, 201):
-        json_assessment_response = json.loads(raw_assessment_response.text)
-        created_id = json_assessment_response['id']
-
-    else:
-        print(f"Error Creating New Assessment.  Status Code returned was {raw_assessment_response.status_code}")
-
-    return created_id
-
-
-def create_upload(platform, key, assessment, network, client):
-
-    """
-    Create an upload to be associated with the assessment.
-
-    :param platform:    URL of platform
-    :type  platform:    str
-
-    :param key:         API key
-    :type  key:         str
-
-    :param assessment:  Assessment ID to associate the upload with
-    :type  assessment:  int
-
-    :param network:     Network ID to associate the upload with
-    :type  network:     int
-
-    :param client:      Client ID
-    :type  client:      int
-
-    :return:    The ID that the platform has associated with the created upload.
-    :rtype:     int
-    """
-
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
-
-    today = datetime.date.today()
-    current_time = time.time()
-
-    logging.info("Creating new upload.")
-
-    upload_name = "upload-" + str(today) + "-" + str(current_time)
-
-    url = platform + "/api/v1/client/" + str(client) + "/upload"
-
-    body = {
-        'assessmentId': assessment,
-        'networkId': network,
-        'name': upload_name
-    }
-
-    raw_upload_response = None
-
-    try:
-        raw_upload_response = request_handler.make_request("POST", url, body=body)
-
-    except Exception as ex:
-        print("ERROR. There was a problem creating a new upload.")
-        print(ex)
-
-        logging.critical("ERROR. There was a problem creating a new upload.")
-        logging.critical("Exception: \n %s", ex)
-
-        exit(1)
-
-    if request_handler.valid_response(raw_upload_response, 201):
-        json_upload_json_response = json.loads(raw_upload_response.text)
-        new_upload_id = json_upload_json_response['id']
-
-    else:
-        print(f"Error creating new upload.  Status Code returned was {raw_upload_response.status_code}")
-        return
-
-    return new_upload_id
-
-
-def add_file_to_upload(platform, key, client, upload, file_name, file_path):
-
-    """
-    Add a scan file to an upload.
-
-    :param platform:    URL of platform
-    :type  platform:    str
-
-    :param key:         API key
-    :type  key:         str
-
-    :param client:      Client ID
-    :type  client:      int
-
-    :param upload:      ID of the upload to associate the file with
-    :type  upload:      int
-
-    :param file_name:   Name of the file to be added to the upload
-    :type  file_name:   str
-
-    :param file_path:   Path to the file to be added to the upload
-    :type  file_path:   str
-    """
-
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
-
-    logging.info("Adding file to upload: %s", file_name)
-    logging.debug("File Path: %s", file_path)
-
-    url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/file"
-
-    upload_file = {'scanFile': (file_name, open(file_path + "/" + file_name, 'rb'))}
-
-    raw_add_file_response = None
-
-    try:
-        raw_add_file_response = request_handler.make_request("POST", url, files=upload_file)
-
-    except Exception as ex:
-        message = "ERROR. There was a problem adding a file ({})to the upload.".format(file_name)
-        print(message)
-        print(ex)
-        logging.critical(message)
-        logging.critical("Exception: \n %s", ex)
-        exit(1)
-
-    if not request_handler.valid_response(raw_add_file_response, 201):
-        message = "Error uploading file {}.  Status Code returned was {}".format(file_name, raw_add_file_response.status_code)
-        print(message)
-        print(raw_add_file_response.text)
-        logging.info(message)
-        logging.info(raw_add_file_response.text)
-
-
-def begin_processing(platform, key, client, upload, run_urba):
-
-    """
-    Begin processing of the files uploaded.
-
-    :param platform:    URL of platform
-    :type  platform:    str
-
-    :param key:         API key
-    :type  key:         str
-
-    :param client:      Client ID
-    :type  client:      int
-
-    :param upload:      ID of the upload to associate the file with
-    :type  upload:      int
-
-    :param run_urba:    Indicator whether or not URBA should be run upon completion of processing.
-    :type  run_urba:    bool
-    """
-
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
-
-    logging.info("Starting platform processing")
-
-    url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload) + "/start"
-
-    body = {
-        "autoUrba": run_urba
-    }
-
-    raw_begin_processing_response = None
-
-    try:
-        raw_begin_processing_response = request_handler.make_request("POST", url, body=body)
-
-    except Exception as ex:
-        message = "ERROR.  There was a problem starting platform processing of the uploaded file(s)."
-        print(message)
-        print(ex)
-        logging.critical(message)
-        logging.critical("Exception: \n %s", ex)
-        exit(1)
-
-    if request_handler.valid_response(raw_begin_processing_response, 200):
-        print("Uploaded file(s) now processing.  This may take a while. Please wait...")
-
-    else:
-        print("An error has occurred when trying to start processing of your upload(s).")
-        print(raw_begin_processing_response.text)
-
-        logging.info(raw_begin_processing_response.text)
-
-
-def check_upload_state(platform, key, client, upload):
-
-    """
-    Check the state of an upload.
-
-    :param platform:    URL of platform
-    :type  platform:    str
-
-    :param key:         API key
-    :type  key:         str
-
-    :param client:      Client ID
-    :type  client:      int
-
-    :param upload:      ID of the upload to associate the file with
-    :type  upload:      int
-
-    :return:    The state of the upload.
-    :rtype:     str
-    """
-
-    request_handler = ApiRequestHandler(key, user_agent=USER_AGENT_STRING)
-
-    logging.info("Checking status of the upload processing")
-
-    url = platform + "/api/v1/client/" + str(client) + "/upload/" + str(upload)
-
-    try:
-        raw_check_upload_state_response = request_handler.make_request("GET", url)
-
-    except Exception as ex:
-        print("There was an exception while checking the state of the upload.")
-        logging.critical("There was an exception while checking the state of the upload.")
-        logging.critical(ex)
-
-        state = "EXCEPTION"
-        return state
-
-    if request_handler.valid_response(raw_check_upload_state_response, 200):
-        json_check_upload_state_response = json.loads(raw_check_upload_state_response.text)
-        state = json_check_upload_state_response['state']
-        logging.debug("State: %s", state)
-
-    else:
-        print(f"An error has occurred while attempting to check the state of your upload.")
-        logging.info("An error has occurred while attempting to check the state of the upload.")
-
-        print(f"Status Code returned was {raw_check_upload_state_response.status_code}")
-        logging.info("Status Code returned was: %s", raw_check_upload_state_response.status_code)
-
-        return "ERROR"
-
-    return state
-
-
-def process_args(arguments):
-
-    """
-    Process the arguments that were passed to the script into configuration variables.
-
-    :param arguments:   Arguments received
-
-    :return:    Configuration variable values
-    """
-    rs_platform = arguments.platform
-    api_key = arguments.api_key
-    file_path = arguments.files_folder
-    log_folder = arguments.log_folder
-    client_id = arguments.client_id
-    network_id = arguments.network_id
-
-    if arguments.auto_urba == "true":
-        auto_urba = True
-    elif arguments.auto_urba == "false":
-        auto_urba = False
-    else:
-        auto_urba = arguments.auto_urba
-
-    if client_id is not None:
-        client_id = int(client_id)
-
-    if network_id is not None:
-        network_id = int(network_id)
-
-    return rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id
-
-
-def read_config_file(filename):
-
-    """
-    Reads a TOML-formatted configuration file.
-
-    :param filename:    Path to the TOML-formatted file to be read.
-    :type  filename:    str
-
-    :return:  Values contained in config file.
-    :rtype:   dict
-    """
-
-    toml_data = {}
-
-    try:
-        toml_data = open(filename).read()
-
-    except Exception as ex:
-        print("Error reading configuration file.  Please check for formatting errors.")
+        print("An upload must be associated with a client.  Finding available clients...")
         print()
-        print(ex)
+
+        #  Sort list all_found_ids by client name.
+        sorted_clients = sorted(self.rs.my_clients, key=lambda k: k['name'])
+
+        for x in range(0, len(sorted_clients)):
+            print(f"{x} - {sorted_clients[x]['name']}")
+
+        selected_id = input("Enter the number above that is associated with the client that you would like to select: ")
+
+        if selected_id.isdigit() and int(selected_id) >= 0 and int(selected_id) < len(sorted_clients):
+            found_id = sorted_clients[int(selected_id)]['id']
+            print()
+        else:
+            print("You have made an invalid selection.")
+            found_id = 0
+
+        return found_id
+
+    def find_network_count(self):
+
+        """
+        Get the count of available networks
+
+        :return:    Count of available networks
+        :rtype:     int
+        """
+
+        network_search_filter = []
+
+        try:
+            found_networks = self.rs.networks.search(network_search_filter)
+            return len(found_networks)
+
+        except (rsapi.RequestFailed, rsapi.StatusCodeError) as ex:
+            print(f"The search for network count has failed:")
+            print(ex)
+            logging.critical("ERROR. The search for available networks has failed:")
+            logging.critical(ex)
+            exit(1)
+        except rsapi.MaxRetryError as ex:
+            print(f"The search for network count has reached the maximum number of retries, and failed:")
+            print(ex)
+            logging.critical("ERROR. The search for network count has reached "
+                             "the maximum number of retries, and failed:")
+            logging.critical(ex)
+            exit(1)
+        except Exception as ex:
+            print("ERROR. There was an unexpected problem getting a count of available networks from the platform.")
+            print(ex)
+            logging.critical("ERROR. There was an unexpected problem getting a count "
+                             "of available networks from the platform.")
+            logging.critical("Exception: \n %s", ex)
+            exit(1)
+
+    def create_new_assessment(self, assessment_name, assessment_start_date, assessment_notes):
+
+        """
+        Create a new assessment
+
+        :param assessment_name:
+        :type  assessment_name:
+
+        :param assessment_start_date:
+        :type  assessment_start_date:
+
+        :param assessment_notes:
+        :type  assessment_notes:
+
+        :return:
+        :rtype:
+        """
+        assessment_id = None
+
+        try:
+            assessment_id = self.rs.assessments.create(assessment_name, assessment_start_date, assessment_notes)
+        except (rsapi.RequestFailed, rsapi.StatusCodeError) as ex:
+            print(f"The creation of a new assessment has failed:")
+            print(ex)
+            logging.critical("ERROR. The creation of a new assessment has failed:")
+            logging.critical(ex)
+            exit(1)
+        except rsapi.MaxRetryError as ex:
+            print(f"The creation of a new assessment has reached the maximum number of retries, and failed:")
+            print(ex)
+            logging.critical("ERROR. The creation of a new assessment has reached "
+                             "the maximum number of retries, and failed:")
+            logging.critical(ex)
+            exit(1)
+        except Exception as ex:
+            print("ERROR. There was an unexpected problem creating a new assessment.")
+            print(ex)
+            logging.critical("ERROR. There was an unexpected problem creating a new assessment.")
+            logging.critical("Exception: \n %s", ex)
+            exit(1)
+
+        return assessment_id
+
+    def create_new_upload(self, upload_name, assessment_id, network_id):
+
+        """
+        Create a new upload
+
+        :param upload_name:     Name for new upload
+        :type  upload_name:     str
+
+        :param assessment_id:   Assessment ID to associate upload with
+        :type  assessment_id:   int
+
+        :param network_id:      Network ID to associate upload with
+        :type  network_id:      int
+
+        :return:    The new upload's ID
+        :rtype:     int
+        """
+
+        upload_id = None
+
+        try:
+            upload_id = self.rs.uploads.create(upload_name, assessment_id, network_id)
+        except (rsapi.RequestFailed, rsapi.StatusCodeError) as ex:
+            print(f"The creation of a new upload has failed:")
+            print(ex)
+            logging.critical("ERROR. The creation of a new upload has failed:")
+            logging.critical(ex)
+            exit(1)
+        except rsapi.MaxRetryError as ex:
+            print(f"The creation of a new upload has reached the maximum number of retries, and failed:")
+            print(ex)
+            logging.critical("ERROR. The creation of a new upload has reached "
+                             "the maximum number of retries, and failed:")
+            logging.critical(ex)
+            exit(1)
+        except Exception as ex:
+            print("ERROR. There was an unexpected problem creating a new upload.")
+            print(ex)
+            logging.critical("ERROR. There was an unexpected problem creating a new upload.")
+            logging.critical("Exception: \n %s", ex)
+            exit(1)
+
+        return upload_id
+
+    def upload_files(self, upload_id, files, path_to_files):
+
+        """
+        Upload files to RiskSense.
+
+        :param upload_id:       Upload ID
+        :type  upload_id:       int
+
+        :param files:           List of dicts indicating files to upload
+        :type  files:           list
+
+        :param path_to_files:   Path to files
+        :type  path_to_files:   Path to location on disk where files exist
+
+        :return:    Number of upload errors that occurred
+        :rtype:     int
+        """
+
+        upload_errors = 0
+
+        with progressbar.ProgressBar(max_value=len(files)) as bar:
+            bar_counter = 1
+            for file in files:
+                try:
+                    self.rs.uploads.add_file(upload_id, file['name'], path_to_file=file['full_path'])
+                except FileNotFoundError as fnfe:
+                    upload_errors += 1
+                    print(f"Unable to find file {file['name']} for upload.  Moving on.")
+                    logging.critical("Unable to find file %s for upload", file['name'])
+                    logging.critical(fnfe)
+                    continue
+                except (rsapi.RequestFailed, rsapi.StatusCodeError) as ex:
+                    upload_errors += 1
+                    print(f"Uploading {file['name']} has failed:")
+                    print(ex)
+                    logging.critical("Uploading %s has failed::", file['name'])
+                    logging.critical(ex)
+                    continue
+                except rsapi.MaxRetryError as ex:
+                    upload_errors += 1
+                    print(f"Uploading {file['name']} has failed after reaching the maximum number of retries:")
+                    print(ex)
+                    logging.critical("Uploading file %s has failed after reaching the maximum number of retries", file['name'])
+                    logging.critical(ex)
+                    continue
+                except Exception as ex:
+                    upload_errors += 1
+                    print(f"ERROR. There was an unexpected problem while trying to upload file {file['name']}")
+                    print(ex)
+                    logging.critical("ERROR. There was an unexpected problem while trying to upload file %s", file['name'])
+                    logging.critical(ex)
+                    continue
+
+                shutil.move(path_to_files + "/" + file['name'], path_to_files + "/archive/" + file['name'])
+                bar.update(bar_counter)
+                time.sleep(0.1)
+                bar_counter += 1
+
+        return upload_errors
+
+    def begin_upload_processing(self, upload_id, auto_urba):
+
+        """
+        Begin processing the uploaded files
+
+        :param upload_id:   Upload ID
+        :type  upload_id:   int
+
+        :param auto_urba:   Auto URBA
+        :type  auto_urba:   bool
+        """
+
         print()
-        input("Please press ENTER to close.")
-        exit(1)
+        try:
+            self.rs.uploads.start_processing(upload_id, auto_urba)
+            print(" **        The RiskSense platform is now processing your uploaded files.        **")
+            print(" **                                                                             **")
+            print(" **  If you prefer not to monitor the status of the processing of your files,   **")
+            print(" **  you may hit CTRL+C now to end the script. You can always check the status  **")
+            print(" **  by manually logging in to the RiskSense platform at any time.              **")
+            print()
+        except (rsapi.RequestFailed, rsapi.StatusCodeError, rsapi.MaxRetryError, Exception):
+            print(f"There was an unexpected issue starting the processing of your files.  Please log in"
+                  f"to the platform and start the processing manually. ")
+            input("Hit ENTER to close.")
+            exit(1)
 
-    data = toml.loads(toml_data)
+    def check_processing_state(self, upload_id):
 
-    return data
+        """
+        Check the processing state of the upload.
 
+        :param upload_id:   Upload ID
+        :type  upload_id:   int
 
-def main():
+        :return:    Process state
+        :rtype:     str
+        """
 
-    """ Main body of script """
+        try:
+            process_state = self.rs.uploads.check_state(upload_id)
+            return process_state
+        except (rsapi.RequestFailed, rsapi.StatusCodeError, rsapi.MaxRetryError, Exception):
+            print(f"An unexpected issue has occurred while trying to check the state of your upload.")
+            print(f"Please log in to the platform to monitor the status of this upload.")
+            input("Hit ENTER to close.")
+            exit(1)
 
-    print(f"\n\n         *** RiskSense -- {USER_AGENT_STRING} ***")
-    print('Upload scan files to the RiskSense platform via the RiskSense API. \n\n')
+    def log_session_info(self, network_id, auto_urba, assessment_name, assessment_id,
+                         assessment_start_date, assessment_notes, upload_id, path_to_files, files):
 
-    conf_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'conf', 'config.toml')
-    config = read_config_file(conf_file)
+        """
+        Log the info for the upload session.
 
-    if 'client_id' in config:
-        client_id = config['client_id']
-    else:
-        client_id = None
+        :param network_id:              Network ID
+        :type  network_id:              int
 
-    if 'network_id' in config:
-        network_id = config['network_id']
-    else:
-        network_id = None
+        :param auto_urba:               Auto URBA
+        :type  auto_urba:               bool
 
-    #  Arg Parsing.  Use values from config file as defaults.
-    parser = argparse.ArgumentParser(description='The following arguments can be used to override those in the config file:',
-                                     formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=60))
-    parser.add_argument('-p', '--platform', help='Platform URL', type=str, required=False, default=config['platform'])
-    parser.add_argument('-a', '--api_key', help='API Key', type=str, required=False, default=config['api-key'])
-    parser.add_argument('-f', '--files_folder', help='Path to folder containing scan files', type=str, required=False, default=config['files_folder'])
-    parser.add_argument('-l', '--log_folder', help='Path to folder to write log', type=str, required=False, default=config['log_folder'])
-    parser.add_argument('-u', '--auto_urba', help='Run auto-URBA?', type=str, choices=["true", "false"], required=False, default=config['auto_urba'])
-    parser.add_argument('-c', '--client_id', help='Client ID', type=int, required=False, default=client_id)
-    parser.add_argument('-n', '--network_id', help='Network ID', type=int, required=False, default=network_id)
+        :param assessment_name:         Assessment Name
+        :type  assessment_name:         str
 
-    args = parser.parse_args()
+        :param assessment_id:           Assessment ID
+        :type  assessment_id:           int
 
-    rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id = process_args(args)
+        :param assessment_start_date:   Assessment Start Date
+        :type  assessment_start_date:   str
 
-    log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), log_folder, 'uploads.log')
+        :param assessment_notes:        Assessment Notes
+        :type  assessment_notes:        str
 
-    #  Specify Settings For the Log
-    logging.basicConfig(filename=log_file, level=logging.DEBUG,
-                        format='%(levelname)s:  %(asctime)s > %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
+        :param upload_id:               Upload ID
+        :type  upload_id:               int
 
-    if api_key == "":
+        :param path_to_files:           Path to folder containing files
+        :type  path_to_files:           str
+
+        :param files:                   List of files
+        :type  files:                   list
+        """
+
+        #  Write session info to log file.
+        logging.info("")
+        logging.info(" ------- Session Info ---------")
+        logging.info(" Client ID: %s ", self.rs.get_default_client_id())
+        logging.info(" Network ID: %s ", network_id)
+        logging.info(" Auto URBA: %s ", auto_urba)
+        logging.info(" Assessment Name: %s", assessment_name)
+        logging.info(" Assessment ID: %s", assessment_id)
+        logging.info(" Assessment Start Date: %s", assessment_start_date)
+        logging.info(" Assessment Notes: %s", assessment_notes)
+        logging.info(" Upload ID: %s", upload_id)
+        logging.info(" Path to Files: %s", path_to_files)
+        logging.info(" Files: %s", files)
+        logging.info(" -----------------------------")
+        logging.info("")
+
+    @staticmethod
+    def no_api_key():
+
+        """ No API Key was found.  Print message acknowledging, and exit. """
+
         message = "No API Key configured.  \n " \
                   "Please supply an API Key by one of the following methods: \n" \
                   " - Add to the configuration file (conf/config.toml) \n" \
@@ -680,132 +660,123 @@ def main():
         input("Please press ENTER to close.")
         exit(1)
 
-    #  Validate client_id or get from API
-    if client_id is not None:
-        print("Validating the provided client ID...")
-        valid = validate_client_id(client_id, rs_platform, api_key)
-        if not valid:
-            message = "Unable to validate client ID provided: " + str(client_id)
-            print(message)
-            logging.error(message)
-            print(f"Please provide a valid client ID. Exiting...")
-            exit(1)
+    @staticmethod
+    def process_files(file_path):
+
+        """
+        Check for files to upload, and compile the information
+
+        :param file_path:   Location to check for files.
+        :type  file_path:   str
+
+        :return:    list of files, and full path on disk to the folder they are in
+        :rtype:     tuple
+        """
+
+        files = []
+
+        if file_path == "files_to_process":
+            path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), file_path)
         else:
-            print(" - Client ID validated.")
-    else:
-        client_id = get_client_id(rs_platform, api_key)
-        if client_id == 0:
+            path_to_files = file_path
+
+        #  Get filenames, but ignore subfolders.
+        filenames = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
+
+        for x in range(0, len(filenames)):
+            if filenames[x] == "PLACE_FILES_TO_SCAN_HERE.txt":
+                filenames.pop(x)
+                continue
+            else:
+                files.append({"name": filenames[x], "full_path": os.path.join(path_to_files, filenames[x])})
+
+        #  If no files are found, log, notify the user, and exit.
+        if len(filenames) == 0:
+            message = "No files found to process.  Exiting..."
             print()
-            print("Exiting.")
+            print(message)
+            logging.info(message)
+            print()
+            input("Please press ENTER to close.")
             exit(1)
 
-    if file_path == "files_to_process":
-        path_to_files = os.path.join(os.path.abspath(os.path.dirname(__file__)), file_path)
-    else:
-        path_to_files = file_path
+        return files, path_to_files
 
-    #  Get filenames, but ignore subfolders.
-    files = [f for f in os.listdir(path_to_files) if os.path.isfile(os.path.join(path_to_files, f))]
+    @staticmethod
+    def arg_parser_setup(config):
 
-    x = 0
-    while x < len(files):
-        if files[x] == "PLACE_FILES_TO_SCAN_HERE.txt":
-            files.pop(x)
-        x += 1
+        """
+        Set up the valid args for the arg parser
 
-    #  If no files are found, log, notify the user, and exit.
-    if len(files) == 0:
-        message = "No files found to process.  Exiting..."
-        print()
-        print(message)
-        logging.info(message)
-        print()
-        input("Please press ENTER to close.")
-        exit(1)
+        :param config:  Config variables
+        :type  config:  dict
 
-    process_state = ""
+        :return:    Args
+        :rtype:
+        """
 
-    today = datetime.date.today()
-    current_time = time.time()
+        parser = argparse.ArgumentParser(description='The following arguments can be used to override those in the config file:',
+                                         formatter_class=lambda prog: argparse.HelpFormatter(prog, max_help_position=60))
+        parser.add_argument('-p', '--platform', help='Platform URL', type=str, required=False, default=config['platform'])
+        parser.add_argument('-a', '--api_key', help='API Key', type=str, required=False, default=config['api-key'])
+        parser.add_argument('-f', '--files_folder', help='Path to folder containing scan files', type=str, required=False, default=config['files_folder'])
+        parser.add_argument('-l', '--log_folder', help='Path to folder to write log', type=str, required=False, default=config['log_folder'])
+        parser.add_argument('-u', '--auto_urba', help='Run auto-URBA?', type=str, choices=["true", "false"], required=False, default=config['auto_urba'])
+        parser.add_argument('-c', '--client_id', help='Client ID', type=int, required=False, default=config['client_id'])
+        parser.add_argument('-n', '--network_id', help='Network ID', type=int, required=False, default=config['network_id'])
 
-    logging.info("Date: %s", today)
-    logging.info("Time: %s", current_time)
+        args = parser.parse_args()
 
-    assessment_name = "assmnt_" + str(today) + "_" + str(current_time)
-    assessment_start_date = str(today)
-    assessment_notes = "Assessment generated via upload_to_platform.py."
+        return args
 
-    if network_id is None:
-        network_id = find_network_id(rs_platform, api_key, client_id)
+    @staticmethod
+    def read_config_file(filename):
 
-    print()
-    print("This tool will now create a new assessment and upload files for scanning.")
-    print()
+        """
+        Reads a TOML-formatted configuration file.
 
-    assessment_id = create_new_assessment(rs_platform, api_key, client_id,
-                                          assessment_name, assessment_start_date, assessment_notes)
+        :param filename:    Path to the TOML-formatted file to be read.
+        :type  filename:    str
 
-    upload_id = create_upload(rs_platform, api_key, assessment_id, network_id, client_id)
+        :return:  Values contained in config file.
+        :rtype:   dict
+        """
 
-    #  Log pertinent session information
-    logging.info("")
-    logging.info(" ------- Session Info ---------")
-    logging.info(" Client ID: %s ", client_id)
-    logging.info(" Network ID: %s ", network_id)
-    logging.info(" Auto URBA: %s ", auto_urba)
-    logging.info(" Assessment Name: %s", assessment_name)
-    logging.info(" Assessment ID: %s", assessment_id)
-    logging.info(" Assessment Start Date: %s", assessment_start_date)
-    logging.info(" Assessment Notes: %s", assessment_notes)
-    logging.info(" Upload ID: %s", upload_id)
-    logging.info(" Path to Files: %s", path_to_files)
-    logging.info(" Files: %s", files)
-    logging.info(" -----------------------------")
-    print()
+        toml_data = {}
 
-    print("Uploading Files...")
+        try:
+            toml_data = open(filename).read()
+        except TomlDecodeError as tde:
+            print("An error occurred while trying to decode your config file.  Please check it for formatting errors.")
+            print(f"\n{tde}\n")
+            input("Please press ENTER to close.")
+            exit(1)
+        except FileNotFoundError as fnfe:
+            print("An error occurred while trying to locate your config file. "
+                  "Please verify that it exists in the \"conf\" folder.")
+            print(f"\n{fnfe}\n")
+            input("Please press ENTER to close.")
+            exit(1)
+        except Exception as ex:
+            print("An unexpected error occurred while trying to read your config file.")
+            print(f"\n{ex}\n")
+            input("Please press ENTER to close.")
+            exit(1)
 
-    with progressbar.ProgressBar(max_value=len(files)) as bar:
-        bar_counter = 1
+        data = toml.loads(toml_data)
 
-        for file in files:
-            add_file_to_upload(rs_platform, api_key, client_id, upload_id, file, path_to_files)
-            shutil.move(path_to_files + "/" + file, path_to_files + "/archive/" + file)
-            bar.update(bar_counter)
-            time.sleep(0.1)
-            bar_counter += 1
+        if "client_id" not in data:
+            data.update({"client_id": None})
+        if "network_id" not in data:
+            data.update({"network_id": None})
 
-    print()
-    print("Beginning processing of uploaded files.")
-    print()
-    print(" *  The RiskSense Platform is now processing your uploaded files. If you prefer  *")
-    print(" *  not to wait, you may hit CTRL+C now to end the script if you would rather    *")
-    print(" *  check the status by manually logging in to the RiskSense platform later.     *")
-    print()
-
-    begin_processing(rs_platform, api_key, client_id, upload_id, auto_urba)
-    time.sleep(15)
-
-    while process_state != "COMPLETE":
-        process_state = check_upload_state(rs_platform, api_key, client_id, upload_id)
-
-        if process_state == "ERROR":
-            break
-
-        print(f"Process state is {process_state}. Please wait...")
-        time.sleep(15)
-
-    print()
-    print(f"Processing of uploaded file(s) has ended. State: {process_state}")
-    logging.info("Processing of uploaded files has ended.  State: %s", process_state)
-
-    input("Hit ENTER to close.")
+        return data
 
 
 #  Execute Script
 if __name__ == "__main__":
     try:
-        main()
+        UploadToPlatform()
     except KeyboardInterrupt:
         print()
         print("KeyboardInterrupt detected.  Exiting...")
@@ -814,7 +785,7 @@ if __name__ == "__main__":
 
 
 """
-   Copyright 2019 RiskSense, Inc.
+   Copyright 2020 RiskSense, Inc.
    
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
