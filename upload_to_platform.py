@@ -685,7 +685,6 @@ class UploadToPlatform:
 
         for x in range(0, len(filenames)):
             if filenames[x] == "PLACE_FILES_TO_SCAN_HERE.txt":
-                filenames.pop(x)
                 continue
             else:
                 files.append({"name": filenames[x], "full_path": os.path.join(path_to_files, filenames[x])})
