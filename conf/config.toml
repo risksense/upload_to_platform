@@ -2,7 +2,7 @@
 platform = 'https://platform.risksense.com'
 
 # The API Token can be generated in the RiskSense UI, under User Settings.
-api-key = '11ea75f7-72cb-c55a-8dbe-06d8ade0f190:alBDbnF3d3dCODVnWDh1byRlIyROaWZYLVBWa2MvbmZKJWReWUczJjR4aU80RklKdTRjQGdTUEhTSyRpOXRITA=='
+api-key = ''
 
 # Specify the path to the folder containing the files you wish to upload.
 # If you update this, please use the absolute path to your desired folder.
@@ -19,4 +19,4 @@ auto_urba = true
 #network_id =
 
 # You may uncomment this parameter and enter the desired client ID for your upload here if you already know it.
-client_id = 736
+#client_id =
