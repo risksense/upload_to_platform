@@ -28,7 +28,8 @@ class Assessments(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.ASSESSMENT)
+        self.subject_name = "assessment"
+        Subject.__init__(self, profile, self.subject_name)
 
     def create(self, name, start_date, notes="", client_id=None):
 
@@ -208,7 +209,7 @@ class Assessments(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            response = self._get_single_search_page(Subject.ASSESSMENT, **func_args)
+            response = self._get_single_search_page(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
@@ -255,7 +256,7 @@ class Assessments(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(Subject.ASSESSMENT, search_filters, page_size=page_size, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters, page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
@@ -263,7 +264,7 @@ class Assessments(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.ASSESSMENT, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError, Exception):
             raise
 
@@ -385,33 +386,6 @@ class Assessments(Subject):
 
         return jsonified_data
 
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available assessment filter fields.
-
-        :param client_id:       Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:       int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError:
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.ASSESSMENT, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
-
-
     def get_model(self, client_id=None):
 
         """
@@ -432,7 +406,7 @@ class Assessments(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.ASSESSMENT, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -464,7 +438,7 @@ class Assessments(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.ASSESSMENT, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

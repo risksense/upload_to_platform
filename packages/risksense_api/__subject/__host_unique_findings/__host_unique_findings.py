@@ -29,7 +29,8 @@ class HostUniqueFindings(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.HOST_UNIQUE_FINDING)
+        self.subject_name = "hostUniqueFinding"
+        Subject.__init__(self, profile, self.subject_name)
 
     def search(self, search_filters, page_num=0, page_size=150, sort_field=SortField.ID, sort_dir=SortDirection.ASC, client_id=None):
 
@@ -127,37 +128,11 @@ class HostUniqueFindings(Subject):
             func_args['client_id'] = self._use_default_client_id()[1]
 
         try:
-            export_id = self._export(Subject.HOST_UNIQUE_FINDING, **func_args)
+            export_id = self._export(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, ValueError):
             raise
 
         return export_id
-
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available host unique finding filter fields.
-
-        :param client_id:   Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:   int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError:
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.HOST_UNIQUE_FINDING, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
 
     def get_model(self, client_id=None):
 
@@ -179,7 +154,7 @@ class HostUniqueFindings(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.HOST_UNIQUE_FINDING, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -211,7 +186,7 @@ class HostUniqueFindings(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.HOST_UNIQUE_FINDING, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

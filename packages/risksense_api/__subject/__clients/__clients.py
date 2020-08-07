@@ -25,8 +25,8 @@ class Clients(Subject):
         :param profile:     Profile Object
         :type  profile:     _profile
         """
-
-        Subject.__init__(self, profile, Subject.CLIENT)
+        self.subject_name = "client"
+        Subject.__init__(self, profile, self.subject_name)
         self.api_base_url = self.profile.platform_url + "/api/v1/client"
 
     def get_clients(self, page_size=500, page_number=0):

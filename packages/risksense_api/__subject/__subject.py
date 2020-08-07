@@ -20,33 +20,13 @@ class Subject:
 
     """ Subject class """
 
-    APPLICATION_FINDING = 'applicationFinding'
-    APPLICATION_UNIQUE_FINDING = 'uniqueApplicationFindings'
-    APPLICATION = 'application'
-    APPLICATION_URL = 'applicationUrl'
-    ASSESSMENT = 'assessment'
-    ATTACHMENT = 'attachment'
-    CLIENT = 'client'
-    CONNECTOR = 'connector'
-    EXPORT = 'export'
-    FILTER = 'filter'
-    GROUP = 'group'
-    HOST_FINDING = 'hostFinding'
-    HOST_UNIQUE_FINDING = 'hostUniqueFinding'
-    HOST = 'host'
-    NETWORK = 'network'
-    PLAYBOOK = 'playbook'
-    ROSA = 'rosa'
-    TAG = 'tag'
-    UPLOAD = 'upload'
-    USER = 'user'
-
-    def __init__(self, profile, subject_name):
+    def __init__(self, profile, subject_name=""):
 
         """ Initialize Subject class """
 
         self.profile = profile
-        self.request_handler = ApiRequestHandler(self.profile.api_key)
+        self.subject_name = subject_name
+        self.request_handler = ApiRequestHandler(self.profile.api_key, proxy=self.profile.proxy)
         self.api_base_url = self.profile.platform_url + "/api/v1/client/{}/" + subject_name
 
     def bulk_filtered_op(self, func_name, list_of_filters, client_id, **func_args):
@@ -156,6 +136,38 @@ class Subject:
             prog_bar.finish()
 
         return job_ids
+
+    def get_filter_fields(self, client_id=None):
+
+        """
+        Get a list of available application finding filter fields.
+
+        :param client_id:   Client ID.  If an ID isn't passed, will use the profile's default Client ID.
+        :type  client_id:   int
+
+        :return:    A list of available filters is returned.
+        :rtype:     list
+
+        :raises RequestFailed:
+        :raises StatusCodeError:
+        :raises MaxRetryError:
+        :raises ValueError;
+        """
+
+        # Occurs if: the Subject base class itself is instantiated (which is not intended usage of Subject class); a
+        # child class of Subject doesn't set its subject_name or overrides its initial subject name.
+        if not self.subject_name:
+            raise ValueError("The subject's name must be set in order to retrieve its filter field data.")
+
+        if client_id is None:
+            client_id = self._use_default_client_id()[0]
+
+        try:
+            fields_list = self._filter_fields(self.subject_name, client_id)
+        except (RequestFailed, StatusCodeError, MaxRetryError):
+            raise
+
+        return fields_list
 
     def _export(self, subject_name, **kwargs):
 
@@ -502,7 +514,11 @@ class Subject:
                     continue
 
                 if '_embedded' in data:
-                    items = data['_embedded'][subject + 's']
+                    if 'projection' in func_args and subject == "group":
+                        if func_args['projection'] == Projection.DETAIL:
+                            items = data['_embedded'][subject + 'Details']
+                    else:
+                        items = data['_embedded'][subject + 's']
                     for item in items:
                         all_results.append(item)
 

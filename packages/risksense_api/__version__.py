@@ -11,7 +11,7 @@
 __title__ = 'risksense_api'
 __description__ = 'A python module for interacting with the RiskSense API'
 __url__ = 'https://www.risksense.com'
-__version__ = '0.8.10'
+__version__ = '0.9.0'
 __author__ = 'RiskSense, Inc.'
 __author_email__ = 'support@risksense.com'
 __license__ = 'Apache-2.0'
@@ -19,7 +19,7 @@ __copyright__ = 'Copyright 2020 RiskSense'
 
 
 """
-   Copyright 2019 RiskSense, Inc.
+   Copyright 2020 RiskSense, Inc.
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

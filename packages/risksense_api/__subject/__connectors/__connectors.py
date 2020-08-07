@@ -41,7 +41,8 @@ class Connectors(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.CONNECTOR)
+        self.subject_name = "connector"
+        Subject.__init__(self, profile, self.subject_name)
 
     def get_list(self, page_num=0, page_size=150, client_id=None):
 

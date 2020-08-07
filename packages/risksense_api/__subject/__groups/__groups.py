@@ -28,9 +28,10 @@ class Groups(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.GROUP)
+        self.subject_name = "group"
+        Subject.__init__(self, profile, self.subject_name)
 
-    def get_single_search_page(self, search_filters, page_num=0, page_size=150,
+    def get_single_search_page(self, search_filters, projection=Projection.BASIC, page_num=0, page_size=150,
                                sort_field=SortField.ID, sort_dir=SortDirection.ASC, client_id=None):
 
         """
@@ -38,6 +39,9 @@ class Groups(Subject):
 
         :param search_filters:  A list of dictionaries containing filter parameters.
         :type  search_filters:  list
+
+        :param projection:      Projection to use
+        :type  projection:      str
 
         :param page_num:        The page number of results to be returned.
         :type  page_num:        int
@@ -70,14 +74,15 @@ class Groups(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            response = self._get_single_search_page(Subject.GROUP, **func_args)
+            response = self._get_single_search_page(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
         return response
 
 
-    def search(self, search_filters, page_size=150, sort_field=SortField.ID, sort_dir=SortDirection.ASC, client_id=None):
+    def search(self, search_filters, projection=Projection.BASIC, page_size=150,
+               sort_field=SortField.ID, sort_dir=SortDirection.ASC, client_id=None):
 
         """
         Searches for and returns groups based on the provided filter(s) and other parameters.  Rather
@@ -86,6 +91,9 @@ class Groups(Subject):
 
         :param search_filters:  A list of dictionaries containing filter parameters.
         :type  search_filters:  list
+
+        :param projection:      Projection to use
+        :type  projection:      str
 
         :param page_size:       The number of results per page to be returned.
         :type  page_size:       int
@@ -116,7 +124,7 @@ class Groups(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(Subject.GROUP, search_filters, page_size=page_size, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters, page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
@@ -124,22 +132,19 @@ class Groups(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.GROUP, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
         return all_results
 
-    def create(self, name, asset_criticality=3, client_id=None):
+    def create(self, name, client_id=None):
 
         """
         Creates a new group.
 
         :param name:                The name to be used for the new group.
         :type  name:                str
-
-        :param asset_criticality:   The default criticality for hosts in this group.
-        :type  asset_criticality:   int
 
         :param client_id:           Client ID.  If an ID isn't passed, will use the profile's default Client ID.
         :type  client_id:           int
@@ -158,8 +163,7 @@ class Groups(Subject):
         url = self.api_base_url.format(str(client_id))
 
         body = {
-            "name": name,
-            "assetCriticality": asset_criticality
+            "name": name
         }
 
         try:
@@ -392,32 +396,6 @@ class Groups(Subject):
 
         return job_id
 
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available group filter fields.
-
-        :param client_id:   Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:   int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError:
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.GROUP, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
-
     def get_model(self, client_id=None):
 
         """
@@ -438,7 +416,7 @@ class Groups(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.GROUP, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -470,7 +448,7 @@ class Groups(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.GROUP, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

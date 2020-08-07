@@ -34,7 +34,8 @@ class Exports(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.EXPORT)
+        self.subject_name = "export"
+        Subject.__init__(self, profile, self.subject_name)
 
     def check_status(self, export_id, client_id=None):
 

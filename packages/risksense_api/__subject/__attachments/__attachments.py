@@ -27,7 +27,8 @@ class Attachments(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.ATTACHMENT)
+        self.subject_name = "attachment"
+        Subject.__init__(self, profile, self.subject_name)
         self.api_base_url += "/tag/{}/"
 
     def upload(self, tag_id, file_name, client_id=None):

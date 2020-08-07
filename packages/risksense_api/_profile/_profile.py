@@ -37,6 +37,8 @@ class Profile:
         self.num_thread_workers = num_thread_workers
         self.use_prog_bar = kwargs.get("use_prog_bar", False)
 
+        self.proxy = None
+
         if self.platform_url == '':
             raise ValueError("No platform URL provided.")
 
@@ -56,6 +58,25 @@ class Profile:
         if 1 > new_thread_num > 15:
             raise ValueError("Number of threads should be between 1 and 15.")
         self.num_thread_workers = new_thread_num
+
+    def add_proxy(self, proxy):
+
+        """
+        Add proxy to profile.
+
+        :param proxy:   Proxy settings
+        :type  proxy:   dict
+        """
+
+        self.proxy = proxy
+
+    def remove_proxy(self):
+
+        """
+        Remove proxy from profile.
+        """
+
+        self.proxy = None
 
 
 """

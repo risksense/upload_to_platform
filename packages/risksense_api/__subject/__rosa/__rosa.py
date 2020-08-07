@@ -25,7 +25,8 @@ class Rosa(Subject):
        :type  profile:     _profile
        """
 
-        Subject.__init__(self, profile, Subject.ROSA)
+        self.subject_name = "rosa"
+        Subject.__init__(self, profile, self.subject_name)
 
     def create(self, rosa_name, client_id=None):
 
