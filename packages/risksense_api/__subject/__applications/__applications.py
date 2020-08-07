@@ -28,7 +28,8 @@ class Applications(Subject):
         :type  profile:     _profile
         """
 
-        Subject.__init__(self, profile, Subject.APPLICATION)
+        self.subject_name = "application"
+        Subject.__init__(self, profile, self.subject_name)
 
     def get_single_search_page(self, search_filters, page_num=0, page_size=150,
                                sort_field=SortField.ID, sort_dir=SortDirection.ASC, client_id=None):
@@ -70,7 +71,7 @@ class Applications(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            response = self._get_single_search_page(Subject.APPLICATION, **func_args)
+            response = self._get_single_search_page(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
@@ -115,7 +116,7 @@ class Applications(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(subject_name=Subject.APPLICATION, search_filters=search_filters,
+            page_info = self._get_page_info(subject_name=self.subject_name, search_filters=search_filters,
                                             page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
@@ -124,7 +125,7 @@ class Applications(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.APPLICATION, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError, Exception):
             raise
 
@@ -287,7 +288,7 @@ class Applications(Subject):
             func_args['client_id'] = self._use_default_client_id()[1]
 
         try:
-            export_id = self._export(Subject.APPLICATION, **func_args)
+            export_id = self._export(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, ValueError):
             raise
 
@@ -425,33 +426,6 @@ class Applications(Subject):
 
         return job_id
 
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available application filter fields.
-
-        :param client_id:       Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:       int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.APPLICATION, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
-
-
     def get_model(self, client_id=None):
 
         """
@@ -472,7 +446,7 @@ class Applications(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.APPLICATION, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -504,7 +478,7 @@ class Applications(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.APPLICATION, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -536,7 +510,7 @@ class Applications(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._add_group(Subject.APPLICATION, search_filter, group_ids, client_id)
+            response = self._add_group(self.subject_name, search_filter, group_ids, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -568,7 +542,7 @@ class Applications(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._remove_group(Subject.APPLICATION, search_filter, group_ids, client_id)
+            response = self._remove_group(self.subject_name, search_filter, group_ids, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

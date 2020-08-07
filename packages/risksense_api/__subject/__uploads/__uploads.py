@@ -26,7 +26,8 @@ class Uploads(Subject):
         :type  profile:     _profile
         """
 
-        Subject.__init__(self, profile, Subject.UPLOAD)
+        self.subject_name = "upload"
+        Subject.__init__(self, profile, self.subject_name)
 
     def get_uploads(self, assessment_id, page_num=0, page_size=150, client_id=None):
 

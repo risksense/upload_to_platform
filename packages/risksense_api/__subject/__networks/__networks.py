@@ -28,7 +28,8 @@ class Networks(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.NETWORK)
+        self.subject_name = "network"
+        Subject.__init__(self, profile, self.subject_name)
 
     def create(self, name, network_type, client_id=None):
 
@@ -216,6 +217,7 @@ class Networks(Subject):
 
         return jsonified_response
 
+
     def search(self, search_filters, page_size=150, sort_field=SortField.ID, sort_dir=SortDirection.ASC, client_id=None):
 
         """
@@ -255,7 +257,7 @@ class Networks(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(Subject.NETWORK, search_filters, page_size=page_size, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters, page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             print("There was a problem with the networks search.")
@@ -264,38 +266,11 @@ class Networks(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.NETWORK, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
         return all_results
-
-
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available network filter fields.
-
-        :param client_id:       Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:       int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError:
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.NETWORK, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
 
     def get_model(self, client_id=None):
 
@@ -317,7 +292,7 @@ class Networks(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.NETWORK, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -349,7 +324,7 @@ class Networks(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.NETWORK, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

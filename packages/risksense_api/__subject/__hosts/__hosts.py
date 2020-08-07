@@ -29,7 +29,8 @@ class Hosts(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.HOST)
+        self.subject_name = "host"
+        Subject.__init__(self, profile, self.subject_name)
 
     def create(self, group_id, assessment_id, network_id, ip_address, hostname, subnet, disc_date, client_id=None, **kwargs):
 
@@ -171,6 +172,41 @@ class Hosts(Subject):
 
         body = self._strip_nones_from_dict(body)
         body['createCmdb'] = self._strip_nones_from_dict(body['createCmdb'])
+
+        try:
+            raw_response = self.request_handler.make_request(ApiRequestHandler.POST, url, body=body)
+        except (RequestFailed, StatusCodeError, MaxRetryError):
+            raise
+
+        jsonified_response = json.loads(raw_response.text)
+        job_id = jsonified_response['id']
+
+        return job_id
+
+    def delete(self, search_filters, client_id=None):
+
+        """
+        Delete hosts based on provided filters.
+
+        :param search_filters:      A list of dictionaries containing filter parameters.
+        :type  search_filters:      list
+
+        :param client_id:           Client ID.  If an ID isn't passed, will use the profile's default Client ID.
+        :type  client_id:           int
+
+        :return:    The delete Job ID
+        :rtype:     int
+        """
+        if client_id is None:
+            client_id = self._use_default_client_id()[0]
+
+        url = self.api_base_url.format(str(client_id)) + "/delete"
+
+        body = {
+            "filterRequest": {
+                "filters": search_filters
+            }
+        }
 
         try:
             raw_response = self.request_handler.make_request(ApiRequestHandler.POST, url, body=body)
@@ -474,7 +510,7 @@ class Hosts(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(Subject.HOST, search_filters, page_size=page_size, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters, page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
@@ -482,7 +518,7 @@ class Hosts(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.HOST, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError, Exception):
             raise
 
@@ -511,7 +547,7 @@ class Hosts(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            page_info = self._get_page_info(Subject.HOST, search_filters=search_filters, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters=search_filters, client_id=client_id)
             count = page_info[0]
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
@@ -645,7 +681,7 @@ class Hosts(Subject):
             func_args['client_id'] = self._use_default_client_id()[1]
 
         try:
-            export_id = self._export(Subject.HOST, **func_args)
+            export_id = self._export(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, ValueError):
             raise
 
@@ -783,32 +819,6 @@ class Hosts(Subject):
 
         return job_id
 
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available host filter fields.
-
-        :param client_id:       Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:       int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError:
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.HOST, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
-
     def get_model(self, client_id=None):
 
         """
@@ -829,7 +839,7 @@ class Hosts(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.HOST, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -861,7 +871,7 @@ class Hosts(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.HOST, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -893,7 +903,7 @@ class Hosts(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._add_group(Subject.HOST, search_filter, group_ids, client_id)
+            response = self._add_group(self.subject_name, search_filter, group_ids, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -925,7 +935,7 @@ class Hosts(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._remove_group(Subject.HOST, search_filter, group_ids, client_id)
+            response = self._remove_group(self.subject_name, search_filter, group_ids, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

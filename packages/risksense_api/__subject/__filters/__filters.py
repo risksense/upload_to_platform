@@ -50,8 +50,9 @@ class Filters(Subject):
         :type  profile:     _profile
         """
 
-        Subject.__init__(self, profile, Subject.FILTER)
-        self.api_base_url += "/search"
+        self.subject_name = "filter"
+        Subject.__init__(self, profile, self.subject_name)
+        self.alt_api_base_url = self.profile.platform_url + "/api/v1/client/{}/search/{}/filter"
 
     def list_filters(self, filter_subject, client_id=None):
 
@@ -92,8 +93,7 @@ class Filters(Subject):
         if client_id is None:
             client_id = self._use_default_client_id()[0]
 
-        url = self.api_base_url.format(str(client_id)) + filter_subject + "/filter"
-
+        url = self.alt_api_base_url.format(str(client_id), filter_subject)
         try:
             raw_response = self.request_handler.make_request(ApiRequestHandler.GET, url)
 
@@ -588,6 +588,60 @@ class Filters(Subject):
 
         return jsonified_response
 
+    def get_specific_sys_filter(self, filter_subject, filter_id, client_id=None):
+
+        """
+        Get a specific system filter.
+
+        :param filter_subject:  Supported Subjects are:
+                                FilterSubject.APPLICATION
+                                FilterSubject.APPLICATION_FINDING
+                                FilterSubject.APPLICATION_MANUAL_EXPLOIT
+                                FilterSubject.APPLICATION_URL
+                                FilterSubject.ASSESSMENT
+                                FilterSubject.CLIENT
+                                FilterSubject.DATABASE
+                                FilterSubject.DATABASE_FINDING
+                                FilterSubject.GROUP
+                                FilterSubject.HOST
+                                FilterSubject.HOST_FINDING
+                                FilterSubject.HOST_MANUAL_EXPLOIT
+                                FilterSubject.NETWORK
+                                FilterSubject.PATCH
+                                FilterSubject.TAG
+                                FilterSubject.UNIQUE_APPLICATION_FINDING
+                                FilterSubject.UNIQUE_HOST_FINDING
+                                FilterSubject.USER
+        :type filter_subject:   str
+
+        :param filter_id:       Filter ID to get
+        :type  filter_id:       int
+
+        :param client_id:       Client ID
+        :type  client_id:       int
+
+        :return:    The JSON output from the platform is returned, listing the available filters.
+        :rtype:     dict
+
+        :raises RequestFailed:
+        :raises StatusCodeError:
+        :raises MaxRetryError:
+        """
+
+        if client_id is None:
+            client_id = self._use_default_client_id()[0]
+
+        url = self.api_base_url.format(str(client_id)) + "/{}/filter/{}".format(filter_subject, str(filter_id))
+
+        try:
+            raw_response = self.request_handler.make_request(ApiRequestHandler.GET, url)
+        except (RequestFailed, StatusCodeError, MaxRetryError):
+            raise
+
+        jsonified_response = json.loads(raw_response.text)
+
+        return jsonified_response
+
     def create(self, filter_subject, filter_name, filter_list, shared=False, client_id=None):
 
         """
@@ -637,7 +691,7 @@ class Filters(Subject):
         if client_id is None:
             client_id = self._use_default_client_id()[0]
 
-        url = self.api_base_url.format(str(client_id)) + filter_subject + "/filter"
+        url = self.alt_api_base_url.format(str(client_id), filter_subject)
 
         body = {
             "name": filter_name,
@@ -1281,7 +1335,7 @@ class Filters(Subject):
         if client_id is None:
             client_id = self._use_default_client_id()[0]
 
-        url = self.api_base_url.format(str(client_id)) + filter_subject + "/filter/" + str(filter_id)
+        url = self.alt_api_base_url.format(str(client_id), filter_subject) + "/{}".format(str(filter_id))
 
         try:
             raw_response = self.request_handler.make_request(ApiRequestHandler.GET, url)
@@ -1810,7 +1864,7 @@ class Filters(Subject):
 
         success = False
 
-        url = self.api_base_url.format(str(client_id)) + filter_subject + "/filter/" + str(filter_id)
+        url = self.alt_api_base_url.format(str(client_id), filter_subject) + "/{}".format(str(filter_id))
 
         name = kwargs.get("name", None)
         filter_definition = kwargs.get("filter_definition", None)
@@ -2472,7 +2526,7 @@ class Filters(Subject):
         if client_id is None:
             client_id = self._use_default_client_id()[0]
 
-        url = self.api_base_url.format(str(client_id)) + filter_subject + "/filter/" + str(filter_id)
+        url = self.alt_api_base_url.format(str(client_id), filter_subject) + "/{}".format(str(filter_id))
 
         try:
             self.request_handler.make_request(ApiRequestHandler.DELETE, url)
@@ -2934,7 +2988,7 @@ class Filters(Subject):
 
 
 """
-   Copyright 2019 RiskSense, Inc.
+   Copyright 2020 RiskSense, Inc.
    
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

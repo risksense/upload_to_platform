@@ -30,7 +30,8 @@ class HostFindings(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.HOST_FINDING)
+        self.subject_name = "hostFinding"
+        Subject.__init__(self, profile, self.subject_name)
 
     def create(self, host_id_list, assessment_id, severity, source_id, scanner_uuid,
                title, finding_type, description, solution, client_id=None, **kwargs):
@@ -221,7 +222,7 @@ class HostFindings(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(Subject.HOST_FINDING, search_filters, page_size=page_size, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters, page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
@@ -229,7 +230,7 @@ class HostFindings(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.HOST_FINDING, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
@@ -258,7 +259,7 @@ class HostFindings(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            page_info = self._get_page_info(Subject.HOST_FINDING, search_filters=search_filters, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters=search_filters, client_id=client_id)
             count = page_info[0]
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
@@ -477,7 +478,7 @@ class HostFindings(Subject):
             func_args['client_id'] = self._use_default_client_id()[1]
 
         try:
-            export_id = self._export(Subject.HOST_FINDING, **func_args)
+            export_id = self._export(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, ValueError):
             raise
 
@@ -1515,32 +1516,6 @@ class HostFindings(Subject):
 
         return job_id
 
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available hostfinding filter fields.
-
-        :param client_id:   Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:   int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError:
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.HOST_FINDING, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
-
     def get_model(self, client_id=None):
 
         """
@@ -1561,7 +1536,7 @@ class HostFindings(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.HOST_FINDING, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -1593,7 +1568,7 @@ class HostFindings(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.HOST_FINDING, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

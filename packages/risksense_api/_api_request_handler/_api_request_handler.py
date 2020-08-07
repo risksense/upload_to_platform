@@ -28,7 +28,7 @@ class ApiRequestHandler:
     PUT = "PUT"
     DELETE = "DELETE"
 
-    def __init__(self, api_key, user_agent=USER_AGENT, max_retries=5):
+    def __init__(self, api_key, proxy=None, user_agent=USER_AGENT, max_retries=5):
 
         """
         Initialize ApiRequestHandler class.
@@ -44,6 +44,7 @@ class ApiRequestHandler:
         """
 
         self.api_key = api_key
+        self.proxy = proxy
 
         if user_agent is None:
             self.user_agent = 'rs_api_request_handler'
@@ -225,7 +226,7 @@ class ApiRequestHandler:
         :raises MaxRetryError:
         """
 
-        func_params = {'url': url, 'headers': header, 'params': params}
+        func_params = {'url': url, 'headers': header, 'params': params, 'proxies': self.proxy}
 
         try:
             response = self._request_and_validate(self.__retry_session.get, **func_params)
@@ -263,10 +264,10 @@ class ApiRequestHandler:
         if files is not None:
             header.pop('content-type', None)
             header.pop('accept', None)
-            func_params = {'url': url, 'headers': header, 'files': files}
+            func_params = {'url': url, 'headers': header, 'files': files, 'proxies': self.proxy}
         #  If there aren't files involved for uploading, send a regular POST request.
         else:
-            func_params = {'url': url, 'headers': header, 'json': body}
+            func_params = {'url': url, 'headers': header, 'json': body, 'proxies': self.proxy}
 
         try:
             response = self._request_and_validate(self.__retry_session.post, **func_params)
@@ -304,10 +305,10 @@ class ApiRequestHandler:
         if files is not None:
             header.pop('content-type', None)
             header.pop('accept', None)
-            func_params = {'url': url, 'headers': header, 'files': files}
+            func_params = {'url': url, 'headers': header, 'files': files, 'proxies': self.proxy}
         #  If there aren't files involved for uploading, send a regular PUT request.
         else:
-            func_params = {'url': url, 'headers': header, 'json': body}
+            func_params = {'url': url, 'headers': header, 'json': body, 'proxies': self.proxy}
 
         try:
             response = self._request_and_validate(self.__retry_session.put, **func_params)
@@ -338,7 +339,7 @@ class ApiRequestHandler:
         :raises MaxRetryError:
         """
 
-        func_params = {'url': url, 'headers': header, 'json': body}
+        func_params = {'url': url, 'headers': header, 'json': body, 'proxies': self.proxy}
 
         try:
             response = self._request_and_validate(self.__retry_session.delete, **func_params)
@@ -395,7 +396,6 @@ class ApiRequestHandler:
             exception_string += "Response Text: {}\n".format(response.text)
 
         return exception_string
-
 
     @staticmethod
     def _method_has_body(method):

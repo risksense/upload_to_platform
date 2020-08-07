@@ -27,7 +27,8 @@ class ApplicationUrls(Subject):
         :type  profile:     _profile
         """
 
-        Subject.__init__(self, profile, Subject.APPLICATION_URL)
+        self.subject_name = 'applicationUrl'
+        Subject.__init__(self, profile, self.subject_name)
 
     def get_model(self, client_id=None):
 
@@ -49,37 +50,11 @@ class ApplicationUrls(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.APPLICATION_URL, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
         return response
-
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available applicationUrl filter fields.
-
-        :param client_id:       Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:       int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.APPLICATION_URL, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
 
     def suggest(self, search_filter_1, search_filter_2, client_id=None):
 
@@ -107,7 +82,7 @@ class ApplicationUrls(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.APPLICATION_URL, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -153,7 +128,7 @@ class ApplicationUrls(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            response = self._get_single_search_page(Subject.APPLICATION_URL, **func_args)
+            response = self._get_single_search_page(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
@@ -198,7 +173,7 @@ class ApplicationUrls(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(subject_name=Subject.APPLICATION_URL, search_filters=search_filters,
+            page_info = self._get_page_info(subject_name=self.subject_name, search_filters=search_filters,
                                             page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
@@ -207,7 +182,7 @@ class ApplicationUrls(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.APPLICATION_URL, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError, Exception):
             raise
 

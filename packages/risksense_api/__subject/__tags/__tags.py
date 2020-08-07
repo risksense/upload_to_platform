@@ -41,9 +41,10 @@ class Tags(Subject):
         :type  profile:     _profile
         """
 
-        Subject.__init__(self, profile, Subject.TAG)
+        self.subject_name = "tag"
+        Subject.__init__(self, profile, self.subject_name)
 
-    def create(self, tag_type, name, desc, owner, color="#648d9f", locked=False, client_id=None):
+    def create(self, tag_type, name, desc, owner, color="#648d9f", locked=False, propagate=True, client_id=None):
 
         """
         Create a new tag for the client.
@@ -72,6 +73,9 @@ class Tags(Subject):
 
         :param locked:      Reflects whether or not the tag should be locked.
         :type  locked:      bool
+
+        :param propagate    Propagate tag to all findings?
+        :type  propagate:   bool
 
         :param client_id:   Client ID.  If an ID isn't passed, will use the profile's default Client ID.
         :type  client_id:   int
@@ -130,6 +134,10 @@ class Tags(Subject):
                 {
                     "uid": "LOCKED",
                     "value": locked
+                },
+                {
+                    "uid": "PROPAGATE_TO_ALL_FINDINGS",
+                    "value": propagate
                 }
             ]
         }
@@ -471,7 +479,7 @@ class Tags(Subject):
             raise
         return tag_id
 
-    def update(self, tag_id, tag_type, name, desc, owner, color, locked, client_id=None):
+    def update(self, tag_id, tag_type, name, desc, owner, color, locked, propagate=True, client_id=None):
 
         """
         Update an existing tag.
@@ -496,6 +504,9 @@ class Tags(Subject):
 
         :param locked:      Whether or not the tag should be locked.
         :type  locked       bool
+
+        :param propagate    Propagate tag to all findings?
+        :type propagate:    bool
 
         :param client_id:   Client ID.  If an ID isn't passed, will use the profile's default Client ID.
         :type  client_id:   int
@@ -551,6 +562,10 @@ class Tags(Subject):
                 {
                     "uid": "LOCKED",
                     "value": locked
+                },
+                {
+                    "uid": "PROPAGATE_TO_ALL_FINDINGS",
+                    "value": propagate
                 }
             ]
         }
@@ -671,7 +686,7 @@ class Tags(Subject):
         :type  sort_field:      SortField attribute
 
         :param sort_dir:        Direction to sort. SortDirection.ASC or SortDirection.DESC
-        :type sort_dir:         SortDirection attribute
+        :type  sort_dir:        SortDirection attribute
 
         :param client_id:       Client ID.  If an ID isn't passed, will use the profile's default Client ID.
         :type  client_id:       int
@@ -756,7 +771,7 @@ class Tags(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(Subject.TAG, search_filters, page_size=page_size, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters, page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
@@ -764,7 +779,7 @@ class Tags(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.TAG, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
@@ -807,7 +822,7 @@ class Tags(Subject):
             func_args['client_id'] = self._use_default_client_id()[1]
 
         try:
-            export_id = self._export(Subject.TAG, **func_args)
+            export_id = self._export(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, ValueError):
             raise
 
@@ -899,32 +914,6 @@ class Tags(Subject):
 
         return response_id
 
-    def get_filter_fields(self, client_id=None):
-
-        """
-        Get a list of available tag filter fields.
-
-        :param client_id:   Client ID.  If an ID isn't passed, will use the profile's default Client ID.
-        :type  client_id:   int
-
-        :return:    A list of available filters is returned.
-        :rtype:     list
-
-        :raises RequestFailed:
-        :raises StatusCodeError:
-        :raises MaxRetryError:
-        """
-
-        if client_id is None:
-            client_id = self._use_default_client_id()[0]
-
-        try:
-            fields_list = self._filter_fields(Subject.TAG, client_id)
-        except (RequestFailed, StatusCodeError, MaxRetryError):
-            raise
-
-        return fields_list
-
     def get_model(self, client_id=None):
 
         """
@@ -945,7 +934,7 @@ class Tags(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.TAG, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -977,7 +966,7 @@ class Tags(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.TAG, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

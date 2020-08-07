@@ -29,7 +29,8 @@ class Users(Subject):
 
         """
 
-        Subject.__init__(self, profile, Subject.USER)
+        self.subject_name = "user"
+        Subject.__init__(self, profile, self.subject_name)
         self.api_base_url = self.profile.platform_url + "/api/v1/"
 
     def get_my_profile(self):
@@ -154,7 +155,7 @@ class Users(Subject):
             func_args['client_id'] = self._use_default_client_id()[1]
 
         try:
-            export_id = self._export(Subject.USER, **func_args)
+            export_id = self._export(self.subject_name, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, ValueError):
             raise
 
@@ -258,7 +259,7 @@ class Users(Subject):
             client_id, func_args['client_id'] = self._use_default_client_id()
 
         try:
-            page_info = self._get_page_info(Subject.USER, search_filters, page_size=page_size, client_id=client_id)
+            page_info = self._get_page_info(self.subject_name, search_filters, page_size=page_size, client_id=client_id)
             num_pages = page_info[1]
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
@@ -266,7 +267,7 @@ class Users(Subject):
         page_range = range(0, num_pages)
 
         try:
-            all_results = self._search(Subject.USER, self.get_single_search_page, page_range, **func_args)
+            all_results = self._search(self.subject_name, self.get_single_search_page, page_range, **func_args)
         except (RequestFailed, StatusCodeError, MaxRetryError, PageSizeError):
             raise
 
@@ -571,7 +572,7 @@ class Users(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._model(Subject.USER, client_id)
+            response = self._model(self.subject_name, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 
@@ -603,7 +604,7 @@ class Users(Subject):
             client_id = self._use_default_client_id()[0]
 
         try:
-            response = self._suggest(Subject.USER, search_filter_1, search_filter_2, client_id)
+            response = self._suggest(self.subject_name, search_filter_1, search_filter_2, client_id)
         except (RequestFailed, StatusCodeError, MaxRetryError):
             raise
 

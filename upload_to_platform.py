@@ -3,7 +3,7 @@
 |  Name         :  upload_to_platform.py
 |  Project      :  Upload to Platform
 |  Description  :  Uploads files to the RiskSense platform, and kicks off the processing of those files.
-|  Version      :  1.0
+|  Version      :  1.1
 |  Copyright    :  (c) RiskSense, Inc.
 |  License      :  Apache-2.0 (https://www.apache.org/licenses/LICENSE-2.0.txt)
 |
@@ -21,7 +21,7 @@ from toml import TomlDecodeError
 import progressbar
 from packages import risksense_api as rsapi
 
-__version__ = "1.0"
+__version__ = "1.1.1"
 USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
 
@@ -46,7 +46,8 @@ class UploadToPlatform:
 
         #  Process any args passed by the user, and set variables appropriately.
         args = self.arg_parser_setup(config)
-        rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id = self.process_args(args)
+        rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id, \
+            use_proxy, proxy_host, proxy_port, proxy_auth, proxy_user, proxy_pwd = self.process_args(args)
 
         #  Specify Settings For the Log
         log_file = os.path.join(os.path.abspath(os.path.dirname(__file__)), log_folder, 'uploads.log')
@@ -56,7 +57,13 @@ class UploadToPlatform:
         logging.info("Time: %s", current_time)
 
         #  Create RiskSenseApi instance for communicating with the platform
-        self.rs = rsapi.RiskSenseApi(rs_platform, api_key)
+        if use_proxy:
+            if proxy_auth:
+                self.rs = rsapi.RiskSenseApi(rs_platform, api_key, proxy_host, proxy_port, proxy_user, proxy_pwd)
+            else:
+                self.rs = rsapi.RiskSenseApi(rs_platform, api_key, proxy_host, proxy_port)
+        else:
+            self.rs = rsapi.RiskSenseApi(rs_platform, api_key)
 
         #  Validate client_id provided in args/config or get the user to choose one
         if client_id is not None:
@@ -124,16 +131,17 @@ class UploadToPlatform:
 
         while process_state != "COMPLETE":
             process_state = self.check_processing_state(upload_id)
-            if process_state == "ERROR":
-                break
-            if process_state == "COMPLETE":
+
+            if process_state in ["COMPLETE", "COMPLETE_WITH_FAILURES", "ERROR",
+                                 "FAILED", "PARSE_FAILED", "AGGREGATION_FAILED"]:
                 break
             else:
                 print(f"Process state is currently: {process_state}.")
                 time.sleep(15)
 
         print()
-        processing_finished_msg = "Processing of uploaded file(s) has ended. State: {}".format(process_state)
+        processing_finished_msg = "Processing of uploaded file(s) has ended. " \
+                                  "Please log in to the platform for more details. State: {}".format(process_state)
         if auto_urba:
             processing_finished_msg += "\nRiskSense will now begin the Update Remediation By Assessment (URBA) process."
         print(processing_finished_msg)
@@ -317,6 +325,12 @@ class UploadToPlatform:
         log_folder = arguments.log_folder
         client_id = arguments.client_id
         network_id = arguments.network_id
+        use_proxy = arguments.use_proxy
+        proxy_host = arguments.proxy_host
+        proxy_port = arguments.proxy_port
+        proxy_auth = arguments.proxy_auth
+        proxy_user = arguments.proxy_user
+        proxy_pwd = arguments.proxy_pwd
 
         if api_key == "":
             self.no_api_key()
@@ -334,7 +348,8 @@ class UploadToPlatform:
         if network_id is not None:
             network_id = int(network_id)
 
-        return rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id
+        return rs_platform, api_key, file_path, log_folder, auto_urba, client_id, network_id, \
+               use_proxy, proxy_host, proxy_port, proxy_auth, proxy_user, proxy_pwd,
 
     def get_client_id(self):
 
@@ -723,6 +738,12 @@ class UploadToPlatform:
         parser.add_argument('-u', '--auto_urba', help='Run auto-URBA?', type=str, choices=["true", "false"], required=False, default=config['auto_urba'])
         parser.add_argument('-c', '--client_id', help='Client ID', type=int, required=False, default=config['client_id'])
         parser.add_argument('-n', '--network_id', help='Network ID', type=int, required=False, default=config['network_id'])
+        parser.add_argument('--use_proxy', help='Use Proxy?', type=bool, required=False, default=config['use_proxy'])
+        parser.add_argument('--proxy_host', help='Proxy host', type=str, required=False, default=config['proxy']['host'])
+        parser.add_argument('--proxy_port', help='Proxy port', type=int, required=False, default=config['proxy']['port'])
+        parser.add_argument('--proxy_auth', help='Use proxy authentication?', type=bool, required=False, default=config['proxy']['authentication'])
+        parser.add_argument('--proxy_user', help='Proxy username', type=str, required=False, default=config['proxy']['user'])
+        parser.add_argument('--proxy_pwd', help='Proxy password', type=str, required=False, default=config['proxy']['password'])
 
         args = parser.parse_args()
 
