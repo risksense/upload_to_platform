@@ -57,6 +57,16 @@ auto_urba = true
 
 # You may uncomment this parameter and enter the desired client ID for your upload here if you already know it.
 #client_id =
+
+use_proxy = false
+
+[proxy]
+    host = ''
+    port = 3128
+    authentication = false
+    user = ''
+    password = ''
+
 ```
 
 
