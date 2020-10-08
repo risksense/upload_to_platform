@@ -21,7 +21,7 @@ from toml import TomlDecodeError
 import progressbar
 from packages import risksense_api as rsapi
 
-__version__ = "1.1.1"
+__version__ = "1.1.2"
 USER_AGENT_STRING = "upload_to_platform_v" + __version__
 
 
