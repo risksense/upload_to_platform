@@ -25,7 +25,7 @@ use_proxy = false
 
 [proxy]
     host = ''
-    port = ''
+    port = 3128
     authentication = false
     user = ''
     password = ''
