@@ -21,6 +21,12 @@ When run, the script will take all files from a designated folder, upload them t
 platform, and begin processing of those files.  Once the files have been successfully uploaded, 
 the files will be moved into an "archive" subfolder within the original folder.
 
+## Scan File Support
+A common question: "Does this script support uploading scan files from *scanner xyz*?"
+
+In short, yes. The script does not perform any enforcement of supported scan file type, and defers 
+to the RiskSense platform for scan file support. In other words, the script will upload any scan file 
+it finds, regardless of file type, and lets the RiskSense platform sort it out.
 
 ## Usage
 
