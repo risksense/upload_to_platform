@@ -1,4 +1,4 @@
 progressbar2==3.51.4
-urllib3==1.25.10
+urllib3==1.26.5
 requests==2.24.0
 toml==0.10.1
