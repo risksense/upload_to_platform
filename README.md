@@ -5,7 +5,7 @@
 ## Requirements
 
  - Python 3
-    - This script has been tested using Python 3.7
+    - This script has been tested using Python 3.7+
  - Python Modules (recommend to install using pip):
     - toml
     - urllib3
@@ -92,7 +92,7 @@ python upload_to_platform.py -h
 
 
 
-         *** RiskSense -- upload_to_platform_v1.1.2 ***
+         *** RiskSense -- upload_to_platform_v1.1.3 ***
 Upload scan files to the RiskSense platform via the RiskSense API.
 ------------------------------------------------------------------
 
