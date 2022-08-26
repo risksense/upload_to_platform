@@ -1,6 +1,6 @@
 # Risksense - Upload to Platform
 
-[Download version 1.1.2](https://github.com/risksense/upload_to_platform/releases/download/v1.1.2/upload_to_platform-v1.1.2.zip)
+[Download version 1.1.3](https://github.com/risksense/upload_to_platform/releases/download/v1.1.3/upload_to_platform-v1.1.3.zip)
 
 ## Requirements
 
